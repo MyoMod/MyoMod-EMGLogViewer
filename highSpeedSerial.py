@@ -1,6 +1,6 @@
 import serial
+import numpy as np
 
-ser = serial.Serial('/dev/ttyACM0', 921600)
 
 class ReadLine:
     def __init__(self, serial):
@@ -25,9 +25,3 @@ class ReadLine:
                 return returnBuffer
             else:
                 self.buf.extend(data)
-
-rl = ReadLine(ser)
-
-while True:
-    block = rl.readBlock()
-    print(len(block))
