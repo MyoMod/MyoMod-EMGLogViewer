@@ -11,7 +11,7 @@ class EMG_Logger:
         if self.reattach:
             self.dev.attach_kernel_driver(0)
 
-    def readBlock(self, blockSize, timeout = 1000):
+    def readBlock(self, blockSize, timeout = 10000):
         assert blockSize % 64 == 0
         ret = self.dev.read(self.endpoint_in, blockSize, timeout)
         return ret
