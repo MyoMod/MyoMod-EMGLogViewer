@@ -2,15 +2,15 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
-from highSpeedSerial import ReadLine
-import serial
 import scipy.signal as signal
 from matplotlib.widgets import Button
 
 # *** load data ***
 data = np.load("data.npz")
 timeArray = data["timeArray"]
-valueArray = data["valueArray"]
+cutAmount = int(len(timeArray)*0.4)
+timeArray = timeArray[:-cutAmount]
+valueArray = data["valueArray"][:-cutAmount]
 ts = timeArray[-1] - timeArray[-2]
 fs = 1 / ts
 
@@ -46,17 +46,21 @@ def createPlot():
 
 def drawTimeAx(axTime, timeArray, valueArray, fs):
     # plot and set axes limits
-    axTime.plot(timeArray, valueArray, label = "raw")
-    axTime.set_xlim([timeArray[0], timeArray[-1]])
-    axTime.set_ylim([-2, 4])
-
-    # Create notch-filtered version of signal
-    yNotched = notchData(valueArray, fs)
-    axTime.plot(timeArray, yNotched, color = 'r', label = "notch")
+    #axTime.plot(timeArray, valueArray, label = "raw")
 
     # Create bandpass-filtered version of signal
-    yLowpass = butter_bandpass_filter(yNotched, 10,500,fs)
-    axTime.plot(timeArray, yLowpass, color = 'b', label = "bandpass")
+    yLowpass = butter_bandpass_filter(valueArray, 20,500,fs)
+
+    # Create notch-filtered version of signal
+    yNotched = yLowpass
+    for fNotch in [50, 100, 150, 200, 250, 300, 350, 400, 450, 500]:
+        yNotched = notchData(yNotched, fs, fNotch)
+    axTime.plot(timeArray, yNotched, color = 'r', label = "notch")
+
+
+    axTime.set_xlim([timeArray[0], timeArray[-1]])
+    axTime.set_ylim([min(yNotched) - 5, max(yNotched) + 5])
+    #axTime.plot(timeArray, yLowpass, color = 'b', label = "bandpass")
 
     #draw legend
     axTime.legend()
