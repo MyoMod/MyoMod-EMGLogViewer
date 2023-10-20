@@ -14,7 +14,22 @@ class EMG_Logger:
     def readBlock(self, blockSize, timeout = 10000):
         assert blockSize % 64 == 0
         ret = self.dev.read(self.endpoint_in, blockSize, timeout)
-        return ret
+
+        block = np.frombuffer(ret, dtype=np.uint32)
+        # get position of magic number
+        magicPos = int(np.where(block == 0xFFFFFFFF)[0][0])
+
+        # if magic number is not at the beginning of the block, we have to realign
+        if magicPos != 0:
+            assert 0
+
+        return block
+    def writeHeader(self, data, timeout = 10000):
+        assert len(data) == 12
+        # fill with zeros
+        data = data + b'\x00' * (64 - len(data))
+
+        self.dev.write(self.endpoint_out, data, timeout)
     
 
 

@@ -46,20 +46,20 @@ def createPlot():
 
 def drawTimeAx(axTime, timeArray, valueArray, fs):
     # plot and set axes limits
-    #axTime.plot(timeArray, valueArray, label = "raw")
+    axTime.plot(timeArray, valueArray, label = "raw")
 
     # Create bandpass-filtered version of signal
     yLowpass = butter_bandpass_filter(valueArray, 20,500,fs)
 
     # Create notch-filtered version of signal
     yNotched = yLowpass
-    for fNotch in [50, 100, 150, 200, 250, 300, 350, 400, 450, 500]:
+    for fNotch in [50, 100]:
         yNotched = notchData(yNotched, fs, fNotch)
     axTime.plot(timeArray, yNotched, color = 'r', label = "notch")
 
 
     axTime.set_xlim([timeArray[0], timeArray[-1]])
-    axTime.set_ylim([min(yNotched) - 5, max(yNotched) + 5])
+    axTime.set_ylim([-1.6, 1.6])
     #axTime.plot(timeArray, yLowpass, color = 'b', label = "bandpass")
 
     #draw legend
