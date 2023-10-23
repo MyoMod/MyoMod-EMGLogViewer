@@ -7,6 +7,7 @@ from matplotlib.widgets import Button, Slider, RadioButtons
 from EMG_Logger import EMG_Logger
 from scipy import fft
 import math
+from scipy.io.wavfile import write
 
 #data types
 Header_t = np.dtype([('magic', 'u4'), ('sampleRate', 'u2'), ('payload', 'u2'), ('gain', 'u1'), ('channels', 'u1'), ('reserved', 'u2')])
@@ -14,8 +15,11 @@ Header_t = np.dtype([('magic', 'u4'), ('sampleRate', 'u2'), ('payload', 'u2'), (
 #globals
 gain = 1
 samplePeriod = 50 * 1e-6 # 50 us in seconds
-valueArray = np.array([], dtype=np.float32)
-timeArray = np.array([], dtype=np.float32)
+emgValues = np.array([], dtype=np.float32)
+emgTimes = np.array([], dtype=np.float32)
+eventValues = np.array([], dtype=np.float32)
+eventTimes = np.array([], dtype=np.float32)
+
 globalMin = 2**24
 globalMax = -2**24
 showfft = False
@@ -26,13 +30,25 @@ emgLogger = EMG_Logger()
 
 
 def saveValues(event):
-    np.savez("data.npz", timeArray = timeArray, valueArray = valueArray)
+    np.savez("data.npz", emgTimes = emgTimes, emgValues = emgValues, eventTimes = eventTimes, eventValues = eventValues)
 
 def resetMaxMin(event):
     global globalMin
     globalMin = 2**24
     global globalMax
     globalMax = -2**24
+
+def muscleActivated(val):
+    print("muscle activated")
+    global eventTimes
+    global eventValues
+    eventTimes = np.append(eventTimes, emgTimes[-1])
+
+    if val == "Active":
+        eventValues = np.append(eventValues, 1.0)
+    else:
+        eventValues = np.append(eventValues, 0.0)
+
 
 def updateSampleRate(val):
     print("set sample rate to " + str(val))
@@ -66,6 +82,12 @@ axRadio = fig.add_axes([0.81, 0.75, 0.18, 0.15])
 axRadio.set_frame_on(False)
 radio = RadioButtons(axRadio, ('Channel 1', 'Channel 2', 'Channel 3', 'Channel 4', 'Channel 5', 'Channel 6' ))
 radio.on_clicked(updateChannel)
+
+# radio buttons muscle activation
+axMuscleRadio = fig.add_axes([0.81, 0.55, 0.18, 0.15])
+axMuscleRadio.set_frame_on(False)
+muscleRadio = RadioButtons(axMuscleRadio, ('Active',  'Inactive'))
+muscleRadio.on_clicked(muscleActivated)
 
 # sliders
 axSampleRate = fig.add_axes([0.25, 0.1, 0.65, 0.05])
@@ -113,7 +135,7 @@ def animation(i):
     #
 
     if showfft:
-        N = len(valueArray)
+        N = len(emgValues)
         if N == 0:
             return []
         
@@ -122,7 +144,7 @@ def animation(i):
         # calculate fft
         T = samplePeriod
         n = fft.next_fast_len(N, real=True)
-        yf = np.fft.fft(valueArray, n)
+        yf = np.fft.fft(emgValues, n)
         xf = np.linspace(0.0, 1.0/(2.0*T), N//2)
         ax.plot(xf, 2.0/N * np.abs(yf[:N//2]))
         ax.set_xlim([0, 1000])
@@ -132,11 +154,11 @@ def animation(i):
         timeToKeep = 1.5
         samplesToKeep = int(timeToKeep / samplePeriod)
 
-        if len(valueArray) > samplesToKeep:
+        if len(emgValues) > samplesToKeep:
             #downsample for plotting
             downsampleFactor = 10
-            downsampledValueArray = valueArray[-samplesToKeep::downsampleFactor]
-            downsampledTimeArray = timeArray[-samplesToKeep::downsampleFactor]
+            downsampledValueArray = emgValues[-samplesToKeep::downsampleFactor]
+            downsampledTimeArray = emgTimes[-samplesToKeep::downsampleFactor]
 
             # plot and set axes limits
             global globalMin
@@ -163,7 +185,7 @@ while True:
     plt.pause(0.1)
     block = emgLogger.readBlock(blockSize)
     if(len(block) == 8192):
-        lastTime = 0 if len(timeArray) == 0 else timeArray[-1]
+        lastTime = 0 if len(emgTimes) == 0 else emgTimes[-1]
 
         # read metadata
         header = np.frombuffer(block[:3], dtype=Header_t)
@@ -197,5 +219,5 @@ while True:
         status = status & 0xF8 #remove channel number
 
         times = np.linspace(lastTime, lastTime + len(values)*samplePeriod, len(values))
-        timeArray = np.append(timeArray, times)
-        valueArray = np.append(valueArray, values)
+        emgTimes = np.append(emgTimes, times)
+        emgValues = np.append(emgValues, values)
