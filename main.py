@@ -36,9 +36,15 @@ def resetMaxMin(event):
 
 def updateSampleRate(val):
     print("set sample rate to " + str(val))
+    header = np.zeros(1, dtype=Header_t)
+    header["sampleRate"] = int(val)
+    emgLogger.writeHeader(header.tobytes())
 
 def updateGain(val):
     print("set gain to " + str(val))
+    header = np.zeros(1, dtype=Header_t)
+    header["gain"] = int(val)
+    emgLogger.writeHeader(header.tobytes())
 
 def updateChannel(val):
     channel = int(val[-1]) - 1
