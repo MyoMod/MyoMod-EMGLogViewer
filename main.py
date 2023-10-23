@@ -168,7 +168,17 @@ while True:
         gain = int(header["gain"][0])
         channels = int(header["channels"][0])
 
-        activeChannelText =  math.log2(channels) + 1
+        radio.eventson = False
+        radio.set_active(int(math.log2(channels)))
+        radio.eventson = True
+
+        sSampleRate.eventson = False
+        sSampleRate.set_val(sampleRate)
+        sSampleRate.eventson = True
+
+        sGain.eventson = False
+        sGain.set_val(gain)
+        sGain.eventson = True
 
         samplePeriod = 1.0 / sampleRate
 
