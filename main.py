@@ -30,7 +30,7 @@ emgLogger = EMG_Logger()
 
 
 def saveValues(event):
-    np.savez("data.npz", emgTimes = emgTimes, emgValues = emgValues, eventTimes = eventTimes, eventValues = eventValues)
+    np.savez("pc_capture.npz", emgTimes = emgTimes, emgValues = emgValues, eventTimes = eventTimes, eventValues = eventValues)
 
 def resetMaxMin(event):
     global globalMin
