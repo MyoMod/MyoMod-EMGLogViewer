@@ -175,7 +175,7 @@ def drawEvents(axEvent, eventTimes, eventValues):
 
 fig, axEvent, axTime, axFreq  = createPlot(fileName)
 
-downsampleFactor = 8
+downsampleFactor = 1
 emgTimes = emgTimes[::downsampleFactor]
 emgValues = emgValues[::downsampleFactor]
 fs = fs / downsampleFactor
