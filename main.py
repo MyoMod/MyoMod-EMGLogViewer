@@ -8,6 +8,10 @@ from EMG_Logger import EMG_Logger
 from scipy import fft
 import math
 from scipy.io.wavfile import write
+import tkfilebrowser
+import os
+
+
 
 #data types
 Header_t = np.dtype([('magic', 'u4'), ('sampleRate', 'u2'), ('payload', 'u2'), ('gain', 'u1'), ('channels', 'u1'), ('reserved', 'u2')])
@@ -30,7 +34,11 @@ emgLogger = EMG_Logger()
 
 
 def saveValues(event):
-    np.savez("pc_capture.npz", emgTimes = emgTimes, emgValues = emgValues, eventTimes = eventTimes, eventValues = eventValues)
+    currentDir = os.getcwd()
+    filename = tkfilebrowser.asksaveasfilename(initialdir = currentDir, title = "Select file", filetypes = (("npz files","*.npz"),("all files","*.*")))
+    print(filename)
+    if filename != "":
+        np.savez(filename, emgTimes = emgTimes, emgValues = emgValues, eventTimes = eventTimes, eventValues = eventValues)
 
 def resetMaxMin(event):
     global globalMin
