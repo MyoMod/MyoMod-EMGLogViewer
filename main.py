@@ -32,6 +32,8 @@ showfft = False
 # init communication
 emgLogger = EMG_Logger()
 
+def payloadToBlocksize(payload):
+    return payload * 4 + 12
 
 def saveValues(event):
     currentDir = os.getcwd()
@@ -58,10 +60,27 @@ def muscleActivated(val):
         eventValues = np.append(eventValues, 0.0)
 
 
-def updateSampleRate(val):
-    print("set sample rate to " + str(val))
+def updateSampleRate(sampleRate):
+    print("set sample rate to " + str(sampleRate))
     header = np.zeros(1, dtype=Header_t)
-    header["sampleRate"] = int(val)
+    header["sampleRate"] = int(sampleRate)
+
+    # Set payload size so that we have ~250ms of data
+    optimalNPerBlock = sampleRate / 4
+    # make sure that N is in the row 13, 29, 45, 61, ...
+    actualNPerBlock = 13 + int(optimalNPerBlock / 16) * 16
+    # Max payload size is 8189
+    actualNPerBlock = min(actualNPerBlock, 8189)
+    header["payload"] = actualNPerBlock
+
+
+    global blockSize
+    # buffer size must be a multiple of 64
+    blockSize = header["payload"] * 4 + 12
+    assert (blockSize) % 64 == 0
+    # buffer size must be smaller than BUFFER_SIZE (32k)
+    assert blockSize <= 32 * 1024
+
     emgLogger.writeHeader(header.tobytes())
 
 def updateGain(val):
@@ -164,7 +183,7 @@ def animation(i):
 
         if len(emgValues) > samplesToKeep:
             #downsample for plotting
-            downsampleFactor = 10
+            downsampleFactor = 1
             downsampledValueArray = emgValues[-samplesToKeep::downsampleFactor]
             downsampledTimeArray = emgTimes[-samplesToKeep::downsampleFactor]
 
@@ -191,35 +210,44 @@ startLastSample = 0
 
 while True:
     plt.pause(0.1)
-    block = emgLogger.readBlock(blockSize)
-    if(len(block) == 8192):
+
+    # read Header
+    headerBlock = emgLogger.readBlock(64)
+
+    assert len(headerBlock) == (64/4)
+    # read metadata
+    header = np.frombuffer(headerBlock[:3], dtype=Header_t)
+    magic = int(header["magic"][0])
+    assert magic == 0xFFFFFFFF
+    sampleRate = int(header["sampleRate"][0])
+    payloadSize = int(header["payload"][0])
+    gain = int(header["gain"][0])
+    channels = int(header["channels"][0])
+
+    radio.eventson = False
+    radio.set_active(int(math.log2(channels)))
+    radio.eventson = True
+
+    sSampleRate.eventson = False
+    sSampleRate.set_val(sampleRate)
+    sSampleRate.eventson = True
+
+    sGain.eventson = False
+    sGain.set_val(gain)
+    sGain.eventson = True
+
+    samplePeriod = 1.0 / sampleRate
+
+    # read payload
+    # calculate block size from payload size and decrease by 64 bytes for header
+    blockLength = payloadToBlocksize(payloadSize) - 64 # blockLength in bytes
+    block = emgLogger.readBlock(blockLength)
+    if(len(block) == (blockLength / 4)):
         lastTime = 0 if len(emgTimes) == 0 else emgTimes[-1]
 
-        # read metadata
-        header = np.frombuffer(block[:3], dtype=Header_t)
-        magic = int(header["magic"][0])
-        assert magic == 0xFFFFFFFF
-        sampleRate = int(header["sampleRate"][0])
-        payloadSize = int(header["payload"][0])
-        gain = int(header["gain"][0])
-        channels = int(header["channels"][0])
-
-        radio.eventson = False
-        radio.set_active(int(math.log2(channels)))
-        radio.eventson = True
-
-        sSampleRate.eventson = False
-        sSampleRate.set_val(sampleRate)
-        sSampleRate.eventson = True
-
-        sGain.eventson = False
-        sGain.set_val(gain)
-        sGain.eventson = True
-
-        samplePeriod = 1.0 / sampleRate
-
         # read samples
-        samples = block[3:].astype(dtype='i4')
+        samples = headerBlock[3:].astype(dtype='i4')
+        samples = np.append(samples, block.astype(dtype='i4'))
         values = (((samples<<8)>>8).astype(np.float32)/ 2**23) * 3.
 
         # Read status
