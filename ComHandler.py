@@ -12,12 +12,25 @@ class ComHandler:
         self._payloadLength = None
         self._updatesPerSecond = updatesPerSecond
         self._usbInterface = None
+        self._callback = None
+
+        self._time = 0
+
+    def setCallback(self, callback):
+        self._callback = callback
+
+    def run(self):
+        times , values, _ = self.getSamples()
+        self._callback(times, values)
 
     def initCommunication(self):
         self._usbInterface = USBInterface.USBInterface()
         self._usbInterface.initCommunication()
 
-    def getSamples(self, lastSampleTime, timeout = 10):
+    def comminucationIsInitialized(self):
+        return hasattr(self, "_gain")
+
+    def getSamples(self, timeout = 10):
         # read Header
         headerBlock = self._usbInterface.readBlock(64)
         assert len(headerBlock) == (64/4)
@@ -45,7 +58,10 @@ class ComHandler:
             status = status & 0xF8 #remove channel number
 
             samplePeriod = 1.0 / self.sampleRate
-            times = np.linspace(lastSampleTime, lastSampleTime + len(values)*samplePeriod, len(values))
+            firstSampleTime = self._time + samplePeriod
+            lastSampleTime = firstSampleTime + len(values)*samplePeriod
+            self._time = lastSampleTime
+            times = np.linspace(firstSampleTime, lastSampleTime, len(values))
             return times, values, status
         else:
             return None, None, None
