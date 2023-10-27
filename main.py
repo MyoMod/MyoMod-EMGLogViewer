@@ -7,8 +7,10 @@ from scipy import fft
 import math
 import tkfilebrowser
 import os
+import time
 
 import ComHandler
+import SignalProcessor
 from USBInterface import USBInterface
 
 #Params
@@ -17,37 +19,47 @@ timeToKeep = 5
 
 class GUI:
     def __init__(self):
-        self.emgValues = np.array([], dtype=np.float32)
-        self.emgTimes = np.array([], dtype=np.float32)
-        self.eventValues = np.array([], dtype=np.float32)
-        self.eventTimes = np.array([], dtype=np.float32)
 
         self.resetXRange()
 
+        self.dataHandler = SignalProcessor.DataHandler()
         self.comHandler = ComHandler.ComHandler()
+        self.comHandler.setCallback(self.dataHandler.addData)
+        self.signalProcessor = SignalProcessor.SignalProcessor(self.dataHandler)
+
+        self.startTime = 0
+
+        self.lastSampleRate = 0
+        self.lastGain = 0
+        self.lastChannels = 0
 
     def start(self):
-        self.anim = FuncAnimation(self.fig, self.animation, frames = 1000, interval = 250, blit = False)
+        self.anim = FuncAnimation(self.fig, self.animation, frames = 1000, interval = 100, blit = False)
         plt.show(block = False)
         self.comHandler.initCommunication()
+        self.startTime = time.time()
 
     def run(self):
         plt.pause(0.1)
-        self.updateData()
-
-    def updateData(self):
-        lastSampleTime = 0 if len(self.emgTimes) == 0 else self.emgTimes[-1]
-        times, values, _ = self.comHandler.getSamples(lastSampleTime)
-
-        if times is not None:
-            self.emgTimes = np.append(self.emgTimes, times)
-            self.emgValues = np.append(self.emgValues, values)
+        self.comHandler.run()
+        self.signalProcessor.run()
 
     def animation(self, i):
-        # delete previous frame
-        #
-        if len(self.emgValues) == 0:
+        if not self.comHandler.comminucationIsInitialized():
             return []
+
+        #check for new config
+        if self.lastSampleRate != self.comHandler.sampleRate:
+            self.samplerateSlider.set_val(self.comHandler.sampleRate)
+            self.lastSampleRate = self.comHandler.sampleRate
+        
+        if self.lastGain != self.comHandler.gain:
+            self.gainSlider.set_val(self.comHandler.gain)
+            self.lastGain = self.comHandler.gain
+        
+        if self.lastChannels != self.comHandler.channels:
+            self.channelRadio.set_active(int(math.log2(self.comHandler.channels)))
+            self.lastChannels = self.comHandler.channels
 
         if showfft:
             N = len(self.emgValues)
@@ -65,31 +77,39 @@ class GUI:
             self.ax.set_xlim([0, 1000])
             self.ax.set_ylim([0, 32000])
             return self.plot,
-        else:
-            samplesToKeep = int(timeToKeep * self.comHandler.sampleRate)
+        else:            
+            rawTimes, rawValues = self.dataHandler.getData(timeToKeep, "processed")
 
-            if len(self.emgValues) > samplesToKeep:
-                #downsample for plotting
-                downsampleFactor = 1
-                downsampledValueArray = self.emgValues[-samplesToKeep::downsampleFactor]
-                downsampledTimeArray = self.emgTimes[-samplesToKeep::downsampleFactor]
+            if rawTimes is None:
+                return []
 
-                # plot and set axes limits
-                self.xMin = min(min(downsampledValueArray), self.xMin)
-                self.xMax = max(max(downsampledValueArray), self.xMax)
-                self.plot.set_data(downsampledTimeArray, downsampledValueArray)
-                self.ax.set_xlim([downsampledTimeArray[0], downsampledTimeArray[-1]])
-                self.ax.set_ylim([self.xMin, self.xMax])
+            rawTimes = rawTimes[:rawValues.shape[0]]
 
-                return self.plot,
-        return []
+            #downsample for plotting
+            downsampleFactor = 10
+            downsampledValueArray = rawValues[::downsampleFactor]
+            downsampledTimeArray = rawTimes[::downsampleFactor]
+            assert len(downsampledValueArray) == len(downsampledTimeArray)
+
+            # plot and set axes limits
+            #self.xMin = min(min(downsampledValueArray), self.xMin)
+            #self.xMax = max(max(downsampledValueArray), self.xMax)
+            self.plot.set_data(downsampledTimeArray, downsampledValueArray)
+            self.plot.axes.relim()
+            self.plot.axes.autoscale_view()
+            #self.ax.set_xlim([oldestTime, max(relTime, timeToKeep)])
+            #self.ax.set_ylim([self.xMin, self.xMax])
+
+            return self.plot,
 
     def saveValues(self, event):
         currentDir = os.getcwd()
         filename = tkfilebrowser.asksaveasfilename(initialdir = currentDir, title = "Select file", filetypes = (("npz files","*.npz"),("all files","*.*")))
         print(filename)
         if filename != "":
-            np.savez(filename, emgTimes = self.emgTimes, emgValues = self.emgValues, eventTimes = self.eventTimes, eventValues = self.eventValues)
+            emgTimes, emgValues = self.dataHandler.getData(1000, "raw")
+            eventTimes, eventValues = self.dataHandler.getData(1000, "event")
+            np.savez(filename, emgTimes = emgTimes, emgValues = emgValues, eventTimes = eventTimes, eventValues = eventValues)
 
     def resetXRange(self, event = 0):
         self.xMin = +math.inf
@@ -97,12 +117,8 @@ class GUI:
 
     def muscleActivated(self, val):
         print("muscle activated")
-        self.eventTimes = np.append(self.eventTimes, self.emgTimes[-1])
 
-        if val == "Active":
-            self.eventValues = np.append(self.eventValues, 1.0)
-        else:
-            self.eventValues = np.append(self.eventValues, 0.0)
+        self.dataHandler.addData(self.dataHandler.emgTimes[-1], val == "Active", "event")
 
 
     def updateSampleRate(self, sampleRate):
