@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 import scipy.signal as signal
 from matplotlib.widgets import Button, MultiCursor, RangeSlider
+from matplotlib.ticker import EngFormatter
 
 # *** load data ***
 emgTimes = np.array([], dtype=np.float32)
@@ -156,6 +157,13 @@ def drawTimeAx(axes, emgTimes, emgValues, fs):
     ypad = 0.5*(yptop - ypbot)
     axRMSRaw.set_ylim([0, yptop + ypad])
 
+    
+    # Label axis as SI units
+    SIformatter = EngFormatter(unit='V')
+    axes[0].yaxis.set_major_formatter(SIformatter)
+    axRMSRaw.yaxis.set_major_formatter(SIformatter)
+    axes[1].yaxis.set_major_formatter(SIformatter)
+    axRMSFiltered.yaxis.set_major_formatter(SIformatter)
 
     #draw legend
     axes[1].legend()
