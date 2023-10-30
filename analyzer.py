@@ -12,9 +12,12 @@ eventTimes = np.array([], dtype=np.float32)
 eventValues = np.array([], dtype=np.float32)
 
 fileName = "laptopSampled.npz"
-fileName = "laptopCapture2128.npz"
+#fileName = "laptopCapture2128.npz"
 fileName = "laptopCapture1.npz"
-fileName = "pc_capture.npz"
+#fileName = "pc_capture_sampleHopping.npz"
+fileName = "dataSamples/pc_capture4.npz"
+fileName = "dataSamples/pcIdleCapture.npz"
+fileName = "dataSamples/bizepsCapture2.npz"
 
 data = np.load(fileName)
 
@@ -82,17 +85,27 @@ def butter_bandpass_filter(data, lowcut, highcut, fs, order=5):
     y = signal.lfilter(b, a, data)
     return y
 
+def calculateRMS(emgValues, fs, windowSize = 0.3):
+    # calculate rms
+    ySquared = emgValues ** 2
+    # calculate moving average
+    windowSize = int(windowSize * fs)
+    yRMS = np.convolve(ySquared, np.ones(windowSize) / windowSize, mode='same')
+    yRMS = np.sqrt(yRMS)
+
+    return yRMS
+
 # *** plot data ***
 
 def createPlot(fileName):
-    fig, (axEvent, axTime, axFreq) = plt.subplots(3, 1, figsize = (8*0.9, 10*0.9), sharex=True, num="EMG Signal Analysis")
+    fig, axes = plt.subplots(4, 1, figsize = (8*0.9, 10*0.9), sharex=True, num="EMG Signal Analysis")
     fig.subplots_adjust(bottom=0.2, right=0.8)
     fig.suptitle(fileName)
-    return fig, axEvent, axTime, axFreq
+    return fig, axes
 
-def drawTimeAx(axTime, emgTimes, emgValues, fs):
+def drawTimeAx(axes, emgTimes, emgValues, fs):
     # plot and set axes limits
-    axTime.plot(emgTimes, emgValues, label = "raw", color = 'tab:gray')
+    axes[0].plot(emgTimes, emgValues, label = "raw", color = 'tab:gray')
 
     # Create bandpass-filtered version of signal
     yLowpass = butter_bandpass_filter(emgValues, 50, 250,fs, 7)
@@ -101,40 +114,51 @@ def drawTimeAx(axTime, emgTimes, emgValues, fs):
     yNotched = yLowpass
     for fNotch in [50, 100, 150, 200, 250, 300, 350]:
         yNotched = notchData(yNotched, fs, fNotch)
-    axTime.plot(emgTimes, yNotched, color = 'tab:olive', label = "notch")
+    axes[1].plot(emgTimes, yNotched, color = 'tab:olive', label = "notch")
 
     # calculate rms
-    ySquared = yNotched ** 2
-    # calculate moving average
-    windowSize = 0.3 # seconds
-    windowSize = int(windowSize * fs)
-    yRMS = np.convolve(ySquared, np.ones(windowSize) / windowSize, mode='same')
-    yRMS = np.sqrt(yRMS)
+    nothedRMS = calculateRMS(yNotched, fs, windowSize = 0.3)
+    rawRMS = calculateRMS(emgValues, fs, windowSize = 0.3)
 
-    axRMS = axTime.twinx()
-    axRMS.set_ylabel('RMS [V]')
-    axRMS.plot(emgTimes, yRMS, color = 'tab:blue', label = "rms")
-    axRMS.tick_params(axis='y', labelcolor='tab:orange')
+    axRMSFiltered = axes[1].twinx()
+    axRMSFiltered.set_ylabel('RMS [V]')
+    axRMSFiltered.plot(emgTimes, nothedRMS, color = 'tab:blue', label = "rms")
+    axRMSFiltered.tick_params(axis='y', labelcolor='tab:orange')
+
+    axRMSRaw = axes[0].twinx()
+    axRMSRaw.set_ylabel('RMS [V]')
+    axRMSRaw.plot(emgTimes, rawRMS, color = 'tab:orange', label = "rms")
+    axRMSRaw.tick_params(axis='y', labelcolor='tab:orange')
     
 
-    axTime.set_xlim([emgTimes[0], emgTimes[-1]])
-    axTime.set_ylabel('Amplitude [V]')
-    axTime.grid(True)
-    axTime.set_title('EMG')
-    
+    for ax in axes[:2]:
+        ax.set_xlim([emgTimes[0], emgTimes[-1]])
+        ax.set_ylabel('Amplitude [V]')
+        ax.grid(True)
+    axes[0].set_title('EMG - raw')
+    axes[1].set_title('EMG - filtered')
+
     #set Limits
     ypbot = np.percentile(yNotched, 1)
     yptop = np.percentile(yNotched, 99.5)
     ypad = 0.8*(yptop - ypbot)
-    axTime.set_ylim([ypbot - ypad, yptop + ypad])
-    ypbot = np.percentile(yRMS, 1)
-    yptop = np.percentile(yRMS, 98)
+    axes[1].set_ylim([ypbot - ypad, yptop + ypad])
+    ypbot = np.percentile(nothedRMS, 1)
+    yptop = np.percentile(nothedRMS, 98)
     ypad = 0.5*(yptop - ypbot)
-    axRMS.set_ylim([0, yptop + ypad])
+    axRMSFiltered.set_ylim([0, yptop + ypad])
+    ypbot = np.percentile(emgValues, 1)
+    yptop = np.percentile(emgValues, 98)
+    ypad = 0.5*(yptop - ypbot)
+    axes[0].set_ylim([ypbot - ypad, yptop + ypad])
+    ypbot = np.percentile(rawRMS, 1)
+    yptop = np.percentile(rawRMS, 98)
+    ypad = 0.5*(yptop - ypbot)
+    axRMSRaw.set_ylim([0, yptop + ypad])
 
 
     #draw legend
-    axTime.legend()
+    axes[1].legend()
     return yNotched
 
 
@@ -173,21 +197,21 @@ def drawEvents(axEvent, eventTimes, eventValues):
     axEvent.grid(True)
     axEvent.set_title('Muscaular Activity [0, 1] provided by GUI')
 
-fig, axEvent, axTime, axFreq  = createPlot(fileName)
+fig, axes  = createPlot(fileName)
 
-downsampleFactor = 1
+downsampleFactor = 10
 emgTimes = emgTimes[::downsampleFactor]
 emgValues = emgValues[::downsampleFactor]
 fs = fs / downsampleFactor
 
 if len(eventTimes) > 0:
-    drawEvents(axEvent, eventTimes, eventValues)
+    drawEvents(axes[0], eventTimes, eventValues)
 
-filtererSignal = drawTimeAx(axTime, emgTimes, emgValues, fs)
+filtererSignal = drawTimeAx(axes[1:3], emgTimes, emgValues, fs)
 
-colorMesh = drawSpectrogramm(axFreq, filtererSignal, fs)[-1:]
+colorMesh = drawSpectrogramm(axes[-1], filtererSignal, fs)[-1:]
 
-multi = MultiCursor(None, (axEvent, axTime, axFreq), color='darkred', lw=1)
+multi = MultiCursor(None, axes, color='darkred', lw=1)
 
 plt.show()
 plt.title("EMG tz Signal")
