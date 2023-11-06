@@ -36,7 +36,8 @@ class ComHandler:
         assert len(headerBlock) == (64/4)
         header = np.frombuffer(headerBlock[:3], dtype=Header_t)
         if not self.isAligned(header):
-            self.realign()
+            headerBlock = self.realign()
+            header = np.frombuffer(headerBlock[:3], dtype=Header_t)
         
         # process header to get payload size and metadata
         payloadSize = self.processHeader(header)
@@ -91,16 +92,19 @@ class ComHandler:
         return magic == 0xFFFFFFFF
     
     # read data until we are aligned again, data is discarded
-    def realign(self, timeout = 5):
+    def realign(self, timeout = 1):
         startTime = time.time()
         dataBlock = self._usbInterface.readBlock(64)
         header = np.frombuffer(dataBlock[:3], dtype=Header_t)
         while not self.isAligned(header):
             dataBlock = self._usbInterface.readBlock(64)
+            header = np.frombuffer(dataBlock[:3], dtype=Header_t)
 
             if timeout > 0:
                 if time.time() - startTime > timeout:
                     raise Exception("Timeout while realigning")
+        
+        return dataBlock
 
     @property
     def sampleRate(self):
