@@ -19,8 +19,22 @@
             "name": "Python: Analysis",
             "type": "python",
             "request": "launch",
-            // always launch main.py
             "program": "analyzer.py",
+            "console": "integratedTerminal",
+            "justMyCode": true
+        },
+        
+        {
+            "name": "Python: CLI",
+            "type": "python",
+            "request": "launch",
+            "program": "cli_main.py",
+            "args": [
+                " dataSamples/sarah_pc",
+                "-g=1",
+                "-c=5",
+                "-s=2000",
+                "-a"],
             "console": "integratedTerminal",
             "justMyCode": true
         },
