@@ -29,6 +29,21 @@ class ComHandler:
 
     def comminucationIsInitialized(self):
         return hasattr(self, "_gain")
+    
+    def validateConfig(self, sampleRate, gain, channels):
+        if not self.comminucationIsInitialized():
+            return False
+
+        if self.sampleRate != sampleRate:
+            return False
+
+        if self.gain != gain:
+            return False
+
+        if self.channels != channels:
+            return False
+
+        return True
 
     def getSamples(self, timeout = 10):
         # read Header
