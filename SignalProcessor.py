@@ -29,12 +29,16 @@ class DataHandler:
             return None, None
 
         fs = 1 / (times[-1] - times[-2])
-        # find index of last sample
-        nSamples = int(seconds * fs)
 
-        # return None if no new samples are available
-        if nSamples > len(times):
+        if seconds == 0:
             nSamples = len(times)
+        else:
+            # find index of last sample
+            nSamples = int(seconds * fs)
+
+            # return None if no new samples are available
+            if nSamples > len(times):
+                nSamples = len(times)
 
         # get new samples
         times = times[-nSamples:]
