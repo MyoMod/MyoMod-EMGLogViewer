@@ -1,8 +1,10 @@
 import usb.core
-import libusb_package
+from sys import platform
 import numpy as np
 import time
-from sys import platform
+
+if platform == "win32":
+    import libusb_package
 
 class USBInterface:
     def __init__(self):
@@ -20,6 +22,7 @@ class USBInterface:
         block = np.frombuffer(ret, dtype=np.uint32)
 
         return block
+    
     def writeHeader(self, data, timeout = 10000):
         assert len(data) == 12
         # fill with zeros
@@ -43,9 +46,9 @@ class USBInterface:
         
         self.reattach = False
         if platform == "linux" or platform == "linux2":
-            if dev.is_kernel_driver_active(0):
+            if self.dev.is_kernel_driver_active(0):
                 reattach = True
-                dev.detach_kernel_driver(0)
+                self.dev.detach_kernel_driver(0)
 
         self.endpoint_in = self.dev[0][(0,0)][0]
         self.endpoint_out = self.dev[0][(0,0)][1]
