@@ -11,6 +11,7 @@ emgTimes = np.array([], dtype=np.float32)
 emgValues = np.array([], dtype=np.float32)
 eventTimes = np.array([], dtype=np.float32)
 eventValues = np.array([], dtype=np.float32)
+eventData = None
 
 fileName = "laptopSampled.npz"
 #fileName = "laptopCapture2128.npz"
@@ -18,7 +19,9 @@ fileName = "laptopCapture1.npz"
 #fileName = "pc_capture_sampleHopping.npz"
 fileName = "dataSamples/pc_capture4.npz"
 fileName = "dataSamples/pcIdleCapture.npz"
-fileName = "dataSamples/bizepsCapture2.npz"
+fileName = "dataSamples/pc_wade.npz"
+fileName = "dataSamples/cli_test.mat.npz"
+fileName = "dataSamples/cli_test_s=2000_g=1_c=5.npz"
 
 data = np.load(fileName)
 
@@ -26,11 +29,19 @@ data = np.load(fileName)
 if "timeArray" in data:
     emgTimes = data["timeArray"]
     emgValues = data["valueArray"]
+elif "eventTimes" in data:
+    emgTimes = data["emgTimes"]
+    emgValues = data["emgValues"]
+    if "eventTimes" in data:
+        eventTimes = data["eventTimes"]
+        eventValues = data["eventValues"]
 else:
     emgTimes = data["emgTimes"]
     emgValues = data["emgValues"]
-    eventTimes = data["eventTimes"]
-    eventValues = data["eventValues"]
+
+    eventData = dict( data)
+    del eventData["emgTimes"]
+    del eventData["emgValues"]
 
 # close file
 data.close()
@@ -39,7 +50,7 @@ ts = emgTimes[-1] - emgTimes[-2]
 fs = 1 / ts
 
 #remove first x seconds
-preSecondsToRemove = 5
+preSecondsToRemove = 0
 prePointsToRemove = int(preSecondsToRemove * fs)
 
 #remove last x seconds
@@ -49,7 +60,7 @@ postPointsToRemove = int(postSecondsToRemove * fs) if postSecondsToRemove > 0 el
 emgTimes = emgTimes[prePointsToRemove:-postPointsToRemove]
 emgValues = emgValues[prePointsToRemove:-postPointsToRemove]
 
-stabilizeSeconds = 2
+stabilizeSeconds = 1
 stabilizePoints = int(stabilizeSeconds * fs)
 
 
@@ -98,6 +109,12 @@ def calculateRMS(emgValues, fs, windowSize = 0.3):
 
 # *** plot data ***
 
+def getAxisRange(value, lowerPercentile = 1, upperPercentile = 99, padding = 0.8):
+    lower = np.percentile(value, lowerPercentile)
+    upper = np.percentile(value, upperPercentile)
+    padIndexOffset = padding * (upper - lower)
+    return lower - padIndexOffset, upper + padIndexOffset
+
 def createPlot(fileName):
     fig, axes = plt.subplots(4, 1, figsize = (8*0.9, 10*0.9), sharex=True, num="EMG Signal Analysis")
     fig.subplots_adjust(bottom=0.2, right=0.8)
@@ -105,11 +122,13 @@ def createPlot(fileName):
     return fig, axes
 
 def drawTimeAx(axes, emgTimes, emgValues, fs):
-    # plot and set axes limits
-    axes[0].plot(emgTimes, emgValues, label = "raw", color = 'tab:gray')
 
     # Create bandpass-filtered version of signal
-    yLowpass = butter_bandpass_filter(emgValues, 50, 250,fs, 7)
+    yLowpass = butter_bandpass_filter(emgValues, 75, 250,fs, 7)
+
+
+    # plot and set axes limits
+    axes[0].plot(emgTimes, emgValues, marker=".", label = "raw", color = 'tab:gray', )
 
     # Create notch-filtered version of signal
     yNotched = yLowpass
@@ -119,7 +138,7 @@ def drawTimeAx(axes, emgTimes, emgValues, fs):
 
     # calculate rms
     nothedRMS = calculateRMS(yNotched, fs, windowSize = 0.3)
-    rawRMS = calculateRMS(emgValues, fs, windowSize = 0.3)
+    rawRMS = calculateRMS(yLowpass, fs, windowSize = 0.3)
 
     axRMSFiltered = axes[1].twinx()
     axRMSFiltered.set_ylabel('RMS [V]')
@@ -140,22 +159,10 @@ def drawTimeAx(axes, emgTimes, emgValues, fs):
     axes[1].set_title('EMG - filtered')
 
     #set Limits
-    ypbot = np.percentile(yNotched, 1)
-    yptop = np.percentile(yNotched, 99.5)
-    ypad = 0.8*(yptop - ypbot)
-    axes[1].set_ylim([ypbot - ypad, yptop + ypad])
-    ypbot = np.percentile(nothedRMS, 1)
-    yptop = np.percentile(nothedRMS, 98)
-    ypad = 0.5*(yptop - ypbot)
-    axRMSFiltered.set_ylim([0, yptop + ypad])
-    ypbot = np.percentile(emgValues, 1)
-    yptop = np.percentile(emgValues, 98)
-    ypad = 0.5*(yptop - ypbot)
-    axes[0].set_ylim([ypbot - ypad, yptop + ypad])
-    ypbot = np.percentile(rawRMS, 1)
-    yptop = np.percentile(rawRMS, 98)
-    ypad = 0.5*(yptop - ypbot)
-    axRMSRaw.set_ylim([0, yptop + ypad])
+    axes[1].set_ylim(getAxisRange(yNotched[stabilizePoints:], upperPercentile=99.5))
+    axes[0].set_ylim(getAxisRange(emgValues[stabilizePoints:], upperPercentile=98, padding=0.5))
+    axRMSFiltered.set_ylim(getAxisRange(nothedRMS[stabilizePoints:], upperPercentile=98))
+    axRMSRaw.set_ylim(getAxisRange(rawRMS[stabilizePoints:], upperPercentile=98, padding=0.5))
 
     
     # Label axis as SI units
@@ -165,8 +172,6 @@ def drawTimeAx(axes, emgTimes, emgValues, fs):
     axes[1].yaxis.set_major_formatter(SIformatter)
     axRMSFiltered.yaxis.set_major_formatter(SIformatter)
 
-    #draw legend
-    axes[1].legend()
     return yNotched
 
 
@@ -197,23 +202,37 @@ def drawSpectrogramm(axFreq, emgValues, fs):
     return f, t, Sxx, colorMesh
 
 def drawEvents(axEvent, eventTimes, eventValues):
-    axEvent.step(eventTimes, eventValues, where='post', label='Muscaular Activity')
+    numGroups = 1
 
-    axEvent.set_xlim([eventTimes[0], eventTimes[-1]])
-    axEvent.set_ylim([-0.1, 1.1])
+    # when eventData is available use it to plot multiple eventgroups
+    if eventData is not None:
+        numGroups = len(eventData)
+        for eventName, eventVals in eventData.items():
+            eventVals = eventVals.reshape(-1, 2)
+            eventTimes = eventVals[:, 0]
+            eventValues = eventVals[:, 1]
+            axEvent.step(eventTimes, eventValues, where='post', label=eventName)
+    else:
+        axEvent.step(eventTimes, eventValues, where='post', label='Muscaular Activity')
+
+    axEvent.set_xlim([0, emgTimes[-1]])
+    axEvent.set_ylim([-0.1, 1.7])
     axEvent.set_ylabel('Activity')
     axEvent.grid(True)
-    axEvent.set_title('Muscaular Activity [0, 1] provided by GUI')
+    axEvent.legend(ncols = numGroups/2,
+                         loc='upper left', borderaxespad=0.)
+    axEvent.set_title('Events')
 
 fig, axes  = createPlot(fileName)
 
-downsampleFactor = 10
+
+
+downsampleFactor = 1
 emgTimes = emgTimes[::downsampleFactor]
 emgValues = emgValues[::downsampleFactor]
 fs = fs / downsampleFactor
 
-if len(eventTimes) > 0:
-    drawEvents(axes[0], eventTimes, eventValues)
+drawEvents(axes[0], eventTimes, eventValues)
 
 filtererSignal = drawTimeAx(axes[1:3], emgTimes, emgValues, fs)
 
