@@ -107,6 +107,19 @@ def calculateRMS(emgValues, fs, windowSize = 0.3):
 
     return yRMS
 
+def applyHysteresis(values, upperThreshold, lowerThreshold):
+    # apply hysteresis
+    values = values.copy()
+    values[0] = values[0] > upperThreshold
+    for i in range(1, len(values)):
+        if values[i] > upperThreshold:
+            values[i] = 1
+        elif values[i] < lowerThreshold:
+            values[i] = 0
+        else:
+            values[i] = values[i - 1]
+    return values
+
 # *** plot data ***
 
 def getAxisRange(value, lowerPercentile = 1, upperPercentile = 99, padding = 0.8):
@@ -140,9 +153,14 @@ def drawTimeAx(axes, emgTimes, emgValues, fs):
     nothedRMS = calculateRMS(yNotched, fs, windowSize = 0.3)
     rawRMS = calculateRMS(yLowpass, fs, windowSize = 0.3)
 
+    # use hysteresis to only show activity above a certain threshold
+    hysterisis = applyHysteresis(nothedRMS, 4e-6, 2.0e-6)
+    nothedRMSHyst = nothedRMS * hysterisis
+
     axRMSFiltered = axes[1].twinx()
     axRMSFiltered.set_ylabel('RMS [V]')
     axRMSFiltered.plot(emgTimes, nothedRMS, color = 'tab:blue', label = "rms")
+    axRMSFiltered.plot(emgTimes, nothedRMSHyst, color = 'tab:red', label = "rms_hysteresis")
     axRMSFiltered.tick_params(axis='y', labelcolor='tab:orange')
 
     axRMSRaw = axes[0].twinx()
