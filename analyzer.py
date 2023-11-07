@@ -22,6 +22,10 @@ fileName = "dataSamples/pcIdleCapture.npz"
 fileName = "dataSamples/pc_wade.npz"
 fileName = "dataSamples/cli_test.mat.npz"
 fileName = "dataSamples/cli_test_s=2000_g=1_c=5.npz"
+fileName = "dataSamples/pcWade1_s=2000_g=1_c=5.npz"
+fileName = "dataSamples/pcWade1_s=2000_g=1_c=5.npz"
+fileName = "dataSamples/laptopAtDesktopWithoutPower_s=2000_g=1_c=5.npz"
+#fileName = "dataSamples/pcWade1_s=2000_g=1_c=4.npz"
 
 data = np.load(fileName)
 
@@ -97,12 +101,16 @@ def butter_bandpass_filter(data, lowcut, highcut, fs, order=5):
     y = signal.lfilter(b, a, data)
     return y
 
+def convolve(data, time, fs):
+    windowSize = int(time * fs)
+    yConv = np.convolve(data, np.ones(windowSize) / windowSize, mode='same')
+    return yConv
+
 def calculateRMS(emgValues, fs, windowSize = 0.3):
     # calculate rms
     ySquared = emgValues ** 2
     # calculate moving average
-    windowSize = int(windowSize * fs)
-    yRMS = np.convolve(ySquared, np.ones(windowSize) / windowSize, mode='same')
+    yRMS = convolve(ySquared, windowSize, fs)
     yRMS = np.sqrt(yRMS)
 
     return yRMS
@@ -129,7 +137,7 @@ def getAxisRange(value, lowerPercentile = 1, upperPercentile = 99, padding = 0.8
     return lower - padIndexOffset, upper + padIndexOffset
 
 def createPlot(fileName):
-    fig, axes = plt.subplots(4, 1, figsize = (8*0.9, 10*0.9), sharex=True, num="EMG Signal Analysis")
+    fig, axes = plt.subplots(5, 1, figsize = (8*0.9, 10*0.9), sharex=True, num="EMG Signal Analysis")
     fig.subplots_adjust(bottom=0.2, right=0.8)
     fig.suptitle(fileName)
     return fig, axes
@@ -192,32 +200,63 @@ def drawTimeAx(axes, emgTimes, emgValues, fs):
 
     return yNotched
 
+def drawSpectrogramm(axFreq, axDirectFFT, emgValues, fs):
+    windows = ['hamming', 'bohman','barthann', 'blackman', 'blackmanharris', 'flattop', 'hann', 'nuttall', 'parzen', 'triang', 'dpss']
+    actualWindow = windows[3]
+    actualWindow = ('dpss', 1.8)
+    fftsPerSecond = 50
+    samplesPerFFT = int(fs / fftsPerSecond)
+    nperseg = 256
+    noverlap = 256 - samplesPerFFT
+    #hamming, bohmann, barthann window for better frequency resolution
+    f, t, Sxx = signal.spectrogram(emgValues, fs, nfft=512, nperseg=nperseg, noverlap=noverlap, scaling='density', window=actualWindow)
 
-def drawSpectrogramm(axFreq, emgValues, fs):
-    f, t, Sxx = signal.spectrogram(emgValues, fs, nfft=2048, nperseg=2048, noverlap=512, mode='psd')
+    freqSlice = np.where((f > 30) & (f < 500))
 
-    freqSlice = np.where((f > 0) & (f < 500))
     f = f[freqSlice]
     Sxx = Sxx[freqSlice, :][0]
 
     timeDiff = emgTimes[-1] - t[-1]
     t = t + timeDiff
+
+    t_avg = np.where((t > 0.5) & (t < 2.5))
+    Sxx_avg = Sxx[:, t_avg][:,0,:]
+    ftt_avg = np.mean(Sxx_avg, axis=1, keepdims=True)
+    spectrogrammDirectFtt= (Sxx / ftt_avg) - 1
+    freqSliceDFft = np.where((f > 75) & (f < 250))
+    spectrogrammDirectFtt = spectrogrammDirectFtt[freqSliceDFft, :][0]
+
+    directFFT = np.mean(spectrogrammDirectFtt, axis=0, keepdims=True)[0]
+    # Create sliding average
+    directFFT = convolve(directFFT, 0.3, fftsPerSecond)
+    directFFT = np.clip(directFFT, 0, None)
+    directFFT = np.sqrt(directFFT)
+    hysterisis = applyHysteresis(directFFT, 0.9, 0.1)
+    windowedFFT = directFFT * hysterisis
+
+
+    # draw direct FFT
+    directFFTPlot = axDirectFFT.plot(t, directFFT, color='tab:blue', label='direct FFT')
+    axDirectFFT.plot(t, hysterisis, color='tab:orange', label='direct FFT hysteresis')
+    axDirectFFT.plot(t, windowedFFT, color='tab:red', label='direct FFT hysteresis windowed')
+
+    axDirectFFT.set_ylabel('Activity')
+
+
+    # draw spectrogram
     colorMesh = axFreq.pcolormesh(t, f, Sxx, shading='gouraud', norm="linear")
 
     axFreq.set_ylabel('Frequency [Hz]')
     axFreq.set_xlabel('Time [sec]')
 
-    fig.colorbar(colorMesh, ax=axFreq, label='Power Spectral Density [V**2/Hz]')
+    fig.colorbar(colorMesh, ax=axFreq, label='Power Spectral \nDensity [V**2/Hz]')
 
     #set Limits
-    ypbot = np.percentile(Sxx, 1)
-    yptop = np.percentile(Sxx, 98)
-    ypad = 0.5*(yptop - ypbot)
+    percentile = getAxisRange(Sxx, lowerPercentile=1, upperPercentile=90)
+    colorMesh.set_clim(0,percentile[1])
+    axDirectFFT.set_ylim(getAxisRange(directFFT, lowerPercentile=10, upperPercentile=100, padding=0.2))
 
-    #colorMesh.set_clim(0, 1e-13)
-    colorMesh.set_clim(0, yptop + ypad)
-
-    return f, t, Sxx, colorMesh
+    return f, t, Sxx, colorMesh, directFFTPlot
 
 def drawEvents(axEvent, eventTimes, eventValues):
     numGroups = 1
@@ -254,9 +293,8 @@ drawEvents(axes[0], eventTimes, eventValues)
 
 filtererSignal = drawTimeAx(axes[1:3], emgTimes, emgValues, fs)
 
-colorMesh = drawSpectrogramm(axes[-1], filtererSignal, fs)[-1:]
+colorMesh, directFFTPlot = drawSpectrogramm(axes[-1], axes[-2], emgValues, fs)[-2:]
 
 multi = MultiCursor(None, axes, color='darkred', lw=1)
 
 plt.show()
-plt.title("EMG tz Signal")
