@@ -137,8 +137,7 @@ def getAxisRange(value, lowerPercentile = 1, upperPercentile = 99, padding = 0.8
     return lower - padIndexOffset, upper + padIndexOffset
 
 def createPlot(fileName):
-    fig, axes = plt.subplots(5, 1, figsize = (8*0.9, 10*0.9), sharex=True, num="EMG Signal Analysis")
-    fig.subplots_adjust(bottom=0.2, right=0.8)
+    fig, axes = plt.subplots(5, 1, figsize = (8, 10), sharex=True, num="EMG Signal Analysis")
     fig.suptitle(fileName)
     return fig, axes
 
