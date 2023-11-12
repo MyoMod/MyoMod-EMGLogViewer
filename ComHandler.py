@@ -51,7 +51,9 @@ class ComHandler:
         assert len(headerBlock) == (64/4)
         header = np.frombuffer(headerBlock[:3], dtype=Header_t)
         if not self.isAligned(header):
+            print("Header not aligned")
             headerBlock = self.realign()
+            print("Realign done")
             header = np.frombuffer(headerBlock[:3], dtype=Header_t)
         
         # process header to get payload size and metadata
@@ -71,14 +73,21 @@ class ComHandler:
 
             # Read status
             status = samples >> 24
-            status = status & 0xF8 #remove channel number
+            channel = status & 0x07 #remove channel number
+
+            maxChannel = int(max(channel)) + 1
+            samplesToRemove = len(values)%maxChannel
+            values = values[:-samplesToRemove]
+            valueGroups = np.split(values, len(values)/maxChannel)
+            valueGroups = np.swapaxes(valueGroups, 0, 1)
+            nValueGroups = len(valueGroups[0])
 
             samplePeriod = 1.0 / self.sampleRate
             firstSampleTime = self._time + samplePeriod
-            lastSampleTime = firstSampleTime + len(values)*samplePeriod
+            lastSampleTime = firstSampleTime + nValueGroups*samplePeriod
             self._time = lastSampleTime
-            times = np.linspace(firstSampleTime, lastSampleTime, len(values))
-            return times, values, status
+            times = np.linspace(firstSampleTime, lastSampleTime, nValueGroups)
+            return times, valueGroups, status
         else:
             return None, None, None
 
@@ -140,7 +149,7 @@ class ComHandler:
             header["sampleRate"] = int(sampleRate)
 
             # Set payload size so that we have _updatesPerSecond
-            optimalNPerBlock = sampleRate / self._updatesPerSecond
+            optimalNPerBlock = (sampleRate / self._updatesPerSecond) * 6 # 6 is the number of channels
             # make sure that N is in the row 13, 29, 45, 61, ...
             actualNPerBlock = 13 + int(optimalNPerBlock / 16) * 16
             # Max payload size is 8189

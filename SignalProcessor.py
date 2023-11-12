@@ -4,24 +4,24 @@ import numpy as np
 class DataHandler:
     def __init__(self):
         self.emgTimes = np.array([], dtype=np.float32)
-        self.emgValues = np.array([], dtype=np.float32)
-        self.processedValues = np.array([], dtype=np.float32)
+        self.emgValues = np.empty([6,0], dtype=np.float32)
+        self.processedValues = np.empty([6,0], dtype=np.float32)
         self.eventTimes = np.array([], dtype=np.float32)
         self.eventValues = np.array([], dtype=np.float32)
 
     def addData(self, times, values, type = "raw"):
         if type == "raw":
             self.emgTimes = np.append(self.emgTimes, times)
-            self.emgValues = np.append(self.emgValues, values)
+            self.emgValues = np.append(self.emgValues, values, axis=1)
         elif type == "processed":
-            self.processedValues = np.append(self.processedValues, values)
+            self.processedValues = np.append(self.processedValues, values, axis=1)
         elif type == "event":
             self.eventTimes = np.append(self.eventTimes, times)
             self.eventValues = np.append(self.eventValues, values)
 
     def getNumSamples(self, type = "raw"):
         times, values = self._getDataPair(type)
-        return len(values)
+        return values.shape[1]
 
     def getData(self, seconds, type = "raw"):
         times, values = self._getDataPair(type)
@@ -42,7 +42,7 @@ class DataHandler:
 
         # get new samples
         times = times[-nSamples:]
-        values = values[-nSamples:]
+        values = values[:,-nSamples:]
 
         return times, values
 
