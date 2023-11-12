@@ -12,8 +12,8 @@ import ComHandler
 import SignalProcessor
 
 #Params
+showfft = False
 timeToKeep = 5
-downsampleFactor = 1
 
 class EventListener(threading.Thread):
     def __init__(self, startTime):
@@ -88,7 +88,7 @@ class EventListener(threading.Thread):
         print("event " + event + " " + ("enabled" if enabledEvent else "disabled"))
 
 class CLI_Handler:
-    def __init__(self, filename, channel, gain, useGui):
+    def __init__(self, filename, channel, gain):
 
         self.dataHandler = SignalProcessor.DataHandler()
         self.comHandler = ComHandler.ComHandler()
@@ -99,8 +99,6 @@ class CLI_Handler:
         self.gain = gain
         self.channel = channel
         self.filename = filename
-
-        self.useGui = useGui
 
     def start(self):
         self.comHandler.initCommunication()
@@ -126,17 +124,14 @@ class CLI_Handler:
         print("Gain: {}".format(self.comHandler.gain), end=' | ')
         print("Channels: {0:06b}\n\n".format(self.comHandler.channels))
 
-        # start gui
-        if self.useGui:
-            self.setupUI()
-
-            self.anim = FuncAnimation(self.fig, self.animation, frames = 1000, interval = 100, blit = False)
-            plt.show(block = False)
-
         eventListener = EventListener(time.time())
         while not eventListener.terminated:
+<<<<<<< HEAD
             if self.useGui:
                 plt.pause(0.1)
+=======
+            time.sleep(0.1)
+>>>>>>> parent of cdfe416 (Add window with measured Data to cli)
             self.run()  
         
         # get events
@@ -147,39 +142,6 @@ class CLI_Handler:
     def run(self):
         self.comHandler.run()
         self.signalProcessor.run()
-
-    def animation(self, i):
-            
-        rawTimes, rawValues = self.dataHandler.getData(timeToKeep, "raw")
-
-        if rawTimes is None:
-            return []
-
-        rawTimes = rawTimes[:rawValues.shape[1]]
-
-        #downsample for plotting
-        downsampledValueArray = rawValues[:,::downsampleFactor]
-        downsampledTimeArray = rawTimes[::downsampleFactor]
-        assert downsampledValueArray.shape[1] == len(downsampledTimeArray)
-
-        # plot and set axes limits
-        for i in range(rawValues.shape[0]):
-            self.plots[i].set_data(downsampledTimeArray, downsampledValueArray[i])
-            self.plots[i].axes.relim()
-            self.plots[i].axes.autoscale_view()
-        #self.plots.set_data(downsampledTimeArray, downsampledValueArray)
-        #self.plots.axes.relim()
-        #self.plots.axes.autoscale_view()
-
-        return self.plots,
-
-    def setupUI(self):
-        # figure preparation
-
-        # main figure
-        self.fig, self.ax = plt.subplots(1, 1, figsize = (8*0.9, 6*0.9), num = "FreeThetics Data Logger")
-        self.plots = [self.ax.plot([], [], label="Channel " + str(x+1))[0] for x in range(6)]
-        self.ax.legend(loc='upper right')
 
     def terminate(self, terminationState):
         if terminationState == "Ok":
@@ -220,7 +182,6 @@ if __name__ == "__main__":
     parser.add_argument('-g', '--gain', choices=[2**g for g in range(8)], help='gain to use', type=int)
     parser.add_argument('-s', '--samplerate', help='sample rate to use', type=int, choices=[1.9, 3.9, 7.8, 15.6, 31.2, 62.5, 125, 250, 500, 1000, 2000, 4000, 8000, 16000, 32000, 64000], default=2000)
     parser.add_argument('-a', '--auto', help='automaticly add config to filename', action='store_true', default=False)
-    parser.add_argument('-gui', '--gui', help='use gui', action='store_true', default=False)
     args = parser.parse_args()
 
     filename = args.filename.strip()
@@ -228,10 +189,6 @@ if __name__ == "__main__":
     if args.auto:
         filename = filename + "_s=" + str(args.samplerate) + "_g=" + str(args.gain) + "_c=" + str(args.channel)
 
-    if args.gui:
-        import matplotlib.pyplot as plt
-        from matplotlib.animation import FuncAnimation
-
     while True:
-        cliHandler = CLI_Handler(filename, args.channel, args.gain, args.gui)
+        cliHandler = CLI_Handler(filename, args.channel, args.gain)
         cliHandler.start()
