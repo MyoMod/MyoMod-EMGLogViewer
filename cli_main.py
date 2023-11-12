@@ -135,7 +135,8 @@ class CLI_Handler:
 
         eventListener = EventListener(time.time())
         while not eventListener.terminated:
-            time.sleep(0.1)
+            if self.useGui:
+                plt.pause(0.1)
             self.run()  
         
         # get events

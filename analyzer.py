@@ -26,6 +26,8 @@ fileName = "dataSamples/cli_test_s=2000_g=1_c=5.npz"
 fileName = "dataSamples/pcWade1_s=2000_g=1_c=5.npz"
 fileName = "dataSamples/pcWade1_s=2000_g=1_c=5.npz"
 fileName = "dataSamples/laptopAtDesktopWithoutPower_s=2000_g=1_c=5.npz"
+fileName = "dataSamples/gainsetting.npz"
+fileName = "dataSamples/simTest1_s=2000_g=1_c=5.npz"
 #fileName = "dataSamples/pcWade1_s=2000_g=1_c=4.npz"
 
 data = np.load(fileName, allow_pickle=True)
@@ -59,7 +61,7 @@ stabilizePoints = int(stabilizeSeconds * fs)
 
 downsampleFactor = 1
 emgTimes = emgTimes[::downsampleFactor]
-emgValues = emgValues[::downsampleFactor]
+emgValues = emgValues[0,::downsampleFactor]
 fs = fs / downsampleFactor
 
 # *** filter data ***

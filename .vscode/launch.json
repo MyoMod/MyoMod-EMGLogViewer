@@ -30,11 +30,12 @@
             "request": "launch",
             "program": "cli_main.py",
             "args": [
-                " dataSamples/sarah_pc",
+                " dataSamples/simTest1",
                 "-g=1",
                 "-c=5",
                 "-s=2000",
-                "-a"],
+                "-a",
+                "-gui"],
             "console": "integratedTerminal",
             "justMyCode": true
         },
