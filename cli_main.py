@@ -20,9 +20,9 @@ class EventListener(threading.Thread):
         threading.Thread.__init__(self)
         self.events = {}
         self.startTime = startTime
-        self.start()
         self.terminated = False
         self.terminationState = "Ok" # Ok, Reset, Cancel
+        self.start()
 
     def run(self):
         print("Press Enter to exit and save data")
@@ -88,14 +88,14 @@ class EventListener(threading.Thread):
         print("event " + event + " " + ("enabled" if enabledEvent else "disabled"))
 
 class CLI_Handler:
-    def __init__(self, filename, channel, gain, useGui):
+    def __init__(self, filename, sampleRate, channel, gain, useGui):
 
         self.dataHandler = SignalProcessor.DataHandler()
-        self.comHandler = ComHandler.ComHandler()
+        self.comHandler = ComHandler.ComHandler())
         self.comHandler.setCallback(self.dataHandler.addData)
         self.signalProcessor = SignalProcessor.SignalProcessor(self.dataHandler)
 
-        self.samplerate = 2000
+        self.samplerate = sampleRate
         self.gain = gain
         self.channel = channel
         self.filename = filename
@@ -215,8 +215,9 @@ class CLI_Handler:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='FreeThetics Data Logger', epilog='Terminate with Ctrl+C saves data to file')
+
     parser.add_argument('filename', help='filename to save data to')
-    parser.add_argument('-c', '--channel', choices=range(2**6), help='channel to log', type=int)
+    parser.add_argument('-c', '--channel', choices=range(2**6-1), help='channel to log', type=int)
     parser.add_argument('-g', '--gain', choices=[2**g for g in range(8)], help='gain to use', type=int)
     parser.add_argument('-s', '--samplerate', help='sample rate to use', type=int, choices=[1.9, 3.9, 7.8, 15.6, 31.2, 62.5, 125, 250, 500, 1000, 2000, 4000, 8000, 16000, 32000, 64000], default=2000)
     parser.add_argument('-a', '--auto', help='automaticly add config to filename', action='store_true', default=False)
@@ -233,5 +234,5 @@ if __name__ == "__main__":
         from matplotlib.animation import FuncAnimation
 
     while True:
-        cliHandler = CLI_Handler(filename, args.channel, args.gain, args.gui)
+        cliHandler = CLI_Handler(filename, args.samplerate, args.channel, args.gain, args.gui)
         cliHandler.start()
