@@ -82,7 +82,9 @@ class ComHandler:
             valueGroups = np.swapaxes(valueGroups, 0, 1)
             nValueGroups = len(valueGroups[0])
 
-            samplePeriod = 1.0 / self.sampleRate
+            # SampleRate is the rate at which the adc samples
+            # But because we have 6 channels the resulting sample rate is 6 times lower
+            samplePeriod = (1.0 / (self.sampleRate / 6))
             firstSampleTime = self._time + samplePeriod
             lastSampleTime = firstSampleTime + nValueGroups*samplePeriod
             self._time = lastSampleTime
