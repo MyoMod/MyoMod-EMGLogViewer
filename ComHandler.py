@@ -27,6 +27,10 @@ class ComHandler:
         self._usbInterface = USBInterface.USBInterface()
         self._usbInterface.initCommunication()
 
+    def closeCommunication(self):
+        del self._usbInterface
+        self._usbInterface = None
+
     def comminucationIsInitialized(self):
         return hasattr(self, "_gain")
     
