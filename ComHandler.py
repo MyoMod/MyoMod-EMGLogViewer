@@ -8,7 +8,7 @@ Header_t = np.dtype([('magic', 'u4'), ('sampleRate', 'u2'), ('payload', 'u2'), (
 
 
 class ComHandler:
-    def __init__(self, updatesPerSecond = 4) -> None:
+    def __init__(self, updatesPerSecond = 2) -> None:
         self._payloadLength = None
         self._updatesPerSecond = updatesPerSecond
         self._usbInterface = None
@@ -136,6 +136,12 @@ class ComHandler:
         
         return dataBlock
 
+    def forceUpdatesPerSecond(self, updatesPerSecond):
+        self._updatesPerSecond = updatesPerSecond
+        sampleRate = self.sampleRate
+        self._sampleRate = 0
+        self.sampleRate = sampleRate
+
     @property
     def sampleRate(self):
         if not hasattr(self, "_sampleRate"):
@@ -143,19 +149,19 @@ class ComHandler:
         return self._sampleRate
     
     @sampleRate.setter
-    def sampleRate(self, sampleRate):
+    def sampleRate(self, sampleRate, forced = False):
         # Check if initialized
         assert self._usbInterface is not None
 
         changed = self._sampleRate != sampleRate
         
-        if changed:
+        if changed or forced:
             # Update samplerate in device
             header = np.zeros(1, dtype=Header_t)
             header["sampleRate"] = int(sampleRate)
 
             # Set payload size so that we have _updatesPerSecond
-            optimalNPerBlock = (sampleRate / self._updatesPerSecond) * 6 # 6 is the number of channels
+            optimalNPerBlock = (sampleRate / self._updatesPerSecond) 
             # make sure that N is in the row 13, 29, 45, 61, ...
             actualNPerBlock = 13 + int(optimalNPerBlock / 16) * 16
             # Max payload size is 8189
