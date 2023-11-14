@@ -84,7 +84,7 @@ class EventListener(threading.Thread):
         print("event " + event + " " + ("enabled" if enabledEvent else "disabled"))
 
 class CLI_Handler:
-    def __init__(self, filename, sampleRate, channel, gain, useGui):
+    def __init__(self, filename, sampleRate, gain, useGui):
 
         self.dataHandler = SignalProcessor.DataHandler()
         self.comHandler = ComHandler.ComHandler(updatesPerSecond)
@@ -93,7 +93,6 @@ class CLI_Handler:
 
         self.samplerate = sampleRate
         self.gain = gain
-        self.channel = channel
         self.filename = filename
 
         self.useGui = useGui
@@ -124,17 +123,15 @@ class CLI_Handler:
         # Force updatePerSecond to 10
         self.comHandler.forceUpdatesPerSecond(updatesPerSecond)
 
-        while not self.comHandler.validateConfig(self.samplerate, self.gain, 1 << (self.channel-1)):
+        while not self.comHandler.validateConfig(self.samplerate, self.gain):
             time.sleep(0.1)
             self.comHandler.sampleRate = self.samplerate
             self.comHandler.gain = self.gain
-            self.comHandler.channels = 1 << (self.channel-1)
             self.run()
 
         # print current config
-        print("Sampling rate: {}Hz".format(self.comHandler.sampleRate), end=' | ')
-        print("Gain: {}".format(self.comHandler.gain), end=' | ')
-        print("Channels: {0:06b}\n\n".format(self.comHandler.channels))
+        print("Samplingrate: {}Hz".format(self.comHandler.sampleRate), end=' | ')
+        print("Gain: {}".format(self.comHandler.gain), end='\n\n')
 
 
         self.eventListener = EventListener(time.time())
@@ -286,7 +283,6 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='FreeThetics Data Logger', epilog='Terminate with Ctrl+C saves data to file')
 
     parser.add_argument('filename', help='filename to save data to')
-    parser.add_argument('-c', '--channel', choices=range(2**6-1), help='channel to log', type=int)
     parser.add_argument('-g', '--gain', choices=[2**g for g in range(8)], help='gain to use', type=int)
     parser.add_argument('-s', '--samplerate', help='sample rate to use', type=int, choices=possibleContSampleRates + possibleSingleSampleRates, default=2000)
     parser.add_argument('-a', '--auto', help='automaticly add config to filename', action='store_true', default=False)
@@ -296,9 +292,9 @@ if __name__ == "__main__":
     filename = args.filename.strip()
 
     if args.auto:
-        filename = filename + "_s=" + str(args.samplerate) + "_g=" + str(args.gain) + "_c=" + str(args.channel)
+        filename = filename + "_s=" + str(args.samplerate) + "_g=" + str(args.gain)
 
     while True:
-        cliHandler = CLI_Handler(filename, args.samplerate, args.channel, args.gain, args.gui)
+        cliHandler = CLI_Handler(filename, args.samplerate, args.gain, args.gui)
         cliHandler.start()
         del cliHandler

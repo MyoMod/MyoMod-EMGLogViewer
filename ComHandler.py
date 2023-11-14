@@ -34,7 +34,7 @@ class ComHandler:
     def comminucationIsInitialized(self):
         return hasattr(self, "_gain")
     
-    def validateConfig(self, sampleRate, gain, channels):
+    def validateConfig(self, sampleRate, gain):
         if not self.comminucationIsInitialized():
             return False
 
@@ -42,9 +42,6 @@ class ComHandler:
             return False
 
         if self.gain != gain:
-            return False
-
-        if self.channels != channels:
             return False
 
         return True
@@ -104,11 +101,9 @@ class ComHandler:
         sampleRate = int(header["sampleRate"][0])
         payloadSize = int(header["payload"][0])
         gain = int(header["gain"][0])
-        channels = int(header["channels"][0])
 
         self._sampleRate = sampleRate
         self._gain = gain
-        self._channels = channels
 
         self._payloadLength = payloadSize
         return payloadSize
@@ -195,27 +190,3 @@ class ComHandler:
             self._usbInterface.writeHeader(header.tobytes())
             
             self._gain = gain
-
-    @property
-    def channels(self):
-        if not hasattr(self, "_channels"):
-            raise Exception("No Data received yet")
-        return self._channels
-    
-    @channels.setter
-    def channels(self, channels):
-        changed = self._channels != channels
-        
-        if changed:
-            # Update channels in device
-            header = np.zeros(1, dtype=Header_t)
-            header["channels"] = channels
-            self._usbInterface.writeHeader(header.tobytes())
-            
-            self._channels = channels
-
-    def activateChannel(self, channel):
-        self.channels = self.channels | (1 << channel)
-
-    def deactivateChannel(self, channel):
-        self.channels = self.channels & ~(1 << channel)
