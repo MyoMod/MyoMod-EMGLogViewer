@@ -197,6 +197,7 @@ class CLI_Handler:
         self.w = QtWidgets.QWidget()
         self.w.setWindowTitle('FreeThetics Data Logger')
         self.w.resize(800,800)
+        pg.setConfigOptions(antialias=True)
 
         ## Create some widgets to be placed inside
         self.plots = [pg.PlotWidget() for i in range(6)]
