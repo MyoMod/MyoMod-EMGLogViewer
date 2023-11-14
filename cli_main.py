@@ -2,6 +2,7 @@
 import numpy as np
 import os
 import time
+from time import perf_counter
 import argparse
 import tty
 import sys
@@ -13,7 +14,7 @@ import SignalProcessor
 
 #Params
 timeToKeep = 5
-downsampleFactor = 1
+updatesPerSecond = 10
 
 class EventListener(threading.Thread):
     def __init__(self, startTime):
@@ -21,15 +22,14 @@ class EventListener(threading.Thread):
         self.events = {}
         self.startTime = startTime
         self.terminated = False
-        self.terminationState = "Ok" # Ok, Reset, Cancel
+        self.terminationState = "Ok" # Ok, Cancel
         self.start()
 
     def run(self):
         print("Press Enter to exit and save data")
         print("      ESC for exit without saving")
-        print("      Tab to restart recording\n") 
 
-        print("Press any alpha-numeric key to add event named after the pressed key\n")
+        print("\n\nPress any alpha-numeric key to add event named after the pressed key\n")
 
         orig_settings = termios.tcgetattr(sys.stdin)
 
@@ -40,10 +40,6 @@ class EventListener(threading.Thread):
             
             if x == '\n': # Enter -> exit and save
                 termios.tcsetattr(sys.stdin, termios.TCSADRAIN, orig_settings)   
-                self.terminated = True
-
-            elif ord(x) == 0x09: # Tab -> restart recording
-                self.terminationState = "Reset"
                 self.terminated = True
 
             elif x == '\x1b': # ESC -> exit without saving
@@ -91,8 +87,8 @@ class CLI_Handler:
     def __init__(self, filename, sampleRate, channel, gain, useGui):
 
         self.dataHandler = SignalProcessor.DataHandler()
-        self.comHandler = ComHandler.ComHandler())
-        self.comHandler.setCallback(self.dataHandler.addData)
+        self.comHandler = ComHandler.ComHandler(updatesPerSecond)
+        self.comHandler.setCallback(self.addData)
         self.signalProcessor = SignalProcessor.SignalProcessor(self.dataHandler)
 
         self.samplerate = sampleRate
@@ -101,6 +97,17 @@ class CLI_Handler:
         self.filename = filename
 
         self.useGui = useGui
+        self.initDone = False
+
+    def addData(self, times, values):
+        if self.initDone:
+            self.dataHandler.addData(times, values)
+
+        # calculate fps
+        if hasattr(self, "lastTime") and hasattr(self, "avgFps"):
+            self.fps = 1 / (perf_counter() - self.lastTime)
+            self.avgFps = self.avgFps * 0.8 + self.fps * 0.2
+        self.lastTime = perf_counter()
 
     def start(self):
         self.comHandler.initCommunication()
@@ -114,6 +121,9 @@ class CLI_Handler:
             time.sleep(0.1)
             self.run()
 
+        # Force updatePerSecond to 10
+        self.comHandler.forceUpdatesPerSecond(updatesPerSecond)
+
         while not self.comHandler.validateConfig(self.samplerate, self.gain, 1 << (self.channel-1)):
             time.sleep(0.1)
             self.comHandler.sampleRate = self.samplerate
@@ -126,73 +136,128 @@ class CLI_Handler:
         print("Gain: {}".format(self.comHandler.gain), end=' | ')
         print("Channels: {0:06b}\n\n".format(self.comHandler.channels))
 
+
+        self.eventListener = EventListener(time.time())
+
+        self.initDone = True
+
         # start gui
         if self.useGui:
             self.setupUI()
 
-            self.anim = FuncAnimation(self.fig, self.animation, frames = 1000, interval = 100, blit = False)
-            plt.show(block = False)
-
-        eventListener = EventListener(time.time())
-        while not eventListener.terminated:
-            if self.useGui:
-                plt.pause(0.1)
+        while not self.eventListener.terminated:
             self.run()  
+
         
         # get events
-        self.events = eventListener.getEventArrays()
+        self.events = self.eventListener.getEventArrays()
 
-        self.terminate(eventListener.terminationState)
+        self.terminate(self.eventListener.terminationState)
 
     def run(self):
+        t1Start = perf_counter()
         self.comHandler.run()
+        t1End = perf_counter()
         self.signalProcessor.run()
 
-    def animation(self, i):
-            
+        if hasattr(self, "avgT"):
+            self.avgT[0] = self.avgT[0] * 0.8 + (t1End - t1Start) * 0.2
+        
+
+    def updateUi(self):
+        self.run()
+
         rawTimes, rawValues = self.dataHandler.getData(timeToKeep, "raw")
 
         if rawTimes is None:
             return []
 
         rawTimes = rawTimes[:rawValues.shape[1]]
+        t2Start = perf_counter()
 
-        #downsample for plotting
-        downsampledValueArray = rawValues[:,::downsampleFactor]
-        downsampledTimeArray = rawTimes[::downsampleFactor]
-        assert downsampledValueArray.shape[1] == len(downsampledTimeArray)
+        for i, plotItem in enumerate(self.plotItems):
+            plotItem.setData(rawTimes, rawValues[i])
 
-        # plot and set axes limits
-        for i in range(rawValues.shape[0]):
-            self.plots[i].set_data(downsampledTimeArray, downsampledValueArray[i])
-            self.plots[i].axes.relim()
-            self.plots[i].axes.autoscale_view()
-        #self.plots.set_data(downsampledTimeArray, downsampledValueArray)
-        #self.plots.axes.relim()
-        #self.plots.axes.autoscale_view()
+        if self.eventListener.terminated:
+            self.w.close()
 
-        return self.plots,
+        t2End = perf_counter()
+        
+        self.avgT[1] = self.avgT[1] * 0.8 + (t2End - t2Start) * 0.2
+        self.t1Label.setText("T1: {}".format(self.avgT[0]))
+        self.t2Label.setText("T2: {}".format(self.avgT[1]))
+        self.fpsLabel.setText("FPS: {}".format(self.fps))
 
     def setupUI(self):
-        # figure preparation
+        from PySide2 import QtWidgets  # Should work with PyQt5 / PySide2 / PySide6 as well
+        import pyqtgraph as pg  
+        from pyqtgraph.Qt import QtCore, QtWidgets
 
-        # main figure
-        self.fig, self.ax = plt.subplots(1, 1, figsize = (8*0.9, 6*0.9), num = "FreeThetics Data Logger")
-        self.plots = [self.ax.plot([], [], label="Channel " + str(x+1))[0] for x in range(6)]
-        self.ax.legend(loc='upper right')
+        ## Always start by initializing Qt (only once per application)
+        self.app = QtWidgets.QApplication([])
+
+        ## Define a top-level widget to hold everything
+        self.w = QtWidgets.QWidget()
+        self.w.setWindowTitle('FreeThetics Data Logger')
+        self.w.resize(800,800)
+
+        ## Create some widgets to be placed inside
+        self.plots = [pg.PlotWidget() for i in range(6)]
+        self.plotItems = [plot.plot([0]) for plot in self.plots]
+
+        ## Create a grid layout to manage the widgets size and position
+        self.layout = QtWidgets.QVBoxLayout()
+        self.w.setLayout(self.layout)
+
+        # Add labels
+        self.labelLayout = QtWidgets.QHBoxLayout()
+        self.layout.addLayout(self.labelLayout)
+        self.t1Label = QtWidgets.QLabel("T1: ")
+        self.t2Label = QtWidgets.QLabel("T2: ")
+        self.fpsLabel = QtWidgets.QLabel("FPS: ")
+        self.labelLayout.addWidget(self.t1Label)
+        self.labelLayout.addWidget(self.t2Label)
+        self.labelLayout.addWidget(self.fpsLabel)
+        self.lastDuration = 0.0
+        self.lastUpdate = perf_counter()
+        self.avgFps = 0.0
+        self.avgT = [0.0, 0.0]
+
+
+        ## Add widgets to the layout in their proper positions
+        for i, plot in enumerate(self.plots):
+            self.layout.addWidget(plot)
+        ## Display the widget as a new window
+        self.w.show()
+
+        self.timer = QtCore.QTimer()
+        self.timer.timeout.connect(self.updateUi)
+        self.timer.start(0)
+
+        ## Start the Qt event loop
+        self.app.exec_()  # or app.exec_() for PyQt5 / PySide2
+
 
     def terminate(self, terminationState):
+        # close USB connection
+        self.comHandler.closeCommunication()
+
+        # close GUI
+        if self.useGui:
+            self.app.quit()
+
         if terminationState == "Ok":
             print("terminate and save data")
             self.saveValues()
             exit(0)
 
-        elif terminationState == "Reset":
-            print("reset")
-
         elif terminationState == "Cancel":
             print("terminate without saving")
             exit(0)
+
+        else:
+            print("Unknown termination state")
+            exit(1)
 
     def saveValues(self):
         currentDir = os.getcwd()
@@ -214,12 +279,16 @@ class CLI_Handler:
         self.comHandler.channels = 1 << channel
 
 if __name__ == "__main__":
+
+    possibleContSampleRates = [1.9, 3.9, 7.8, 15.6, 31.2, 62.5, 125, 250, 500, 1000, 2000, 4000, 8000, 16000, 32000, 64000]
+    possibleSingleSampleRates = [50, 62.5, 100, 125, 200, 250, 400, 500, 800, 1000, 1600, 2000, 3200, 4000, 6400, 12800]
+
     parser = argparse.ArgumentParser(description='FreeThetics Data Logger', epilog='Terminate with Ctrl+C saves data to file')
 
     parser.add_argument('filename', help='filename to save data to')
     parser.add_argument('-c', '--channel', choices=range(2**6-1), help='channel to log', type=int)
     parser.add_argument('-g', '--gain', choices=[2**g for g in range(8)], help='gain to use', type=int)
-    parser.add_argument('-s', '--samplerate', help='sample rate to use', type=int, choices=[1.9, 3.9, 7.8, 15.6, 31.2, 62.5, 125, 250, 500, 1000, 2000, 4000, 8000, 16000, 32000, 64000], default=2000)
+    parser.add_argument('-s', '--samplerate', help='sample rate to use', type=int, choices=possibleContSampleRates + possibleSingleSampleRates, default=2000)
     parser.add_argument('-a', '--auto', help='automaticly add config to filename', action='store_true', default=False)
     parser.add_argument('-gui', '--gui', help='use gui', action='store_true', default=False)
     args = parser.parse_args()
@@ -229,10 +298,7 @@ if __name__ == "__main__":
     if args.auto:
         filename = filename + "_s=" + str(args.samplerate) + "_g=" + str(args.gain) + "_c=" + str(args.channel)
 
-    if args.gui:
-        import matplotlib.pyplot as plt
-        from matplotlib.animation import FuncAnimation
-
     while True:
         cliHandler = CLI_Handler(filename, args.samplerate, args.channel, args.gain, args.gui)
         cliHandler.start()
+        del cliHandler
