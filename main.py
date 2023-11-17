@@ -11,11 +11,11 @@ import time
 
 import ComHandler
 import SignalProcessor
-from USBInterface import USBInterface
 
 #Params
 showfft = False
 timeToKeep = 5
+downsampleFactor = 1
 
 class GUI:
     def __init__(self):
