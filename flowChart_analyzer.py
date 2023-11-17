@@ -170,6 +170,7 @@ class EMG_FlowChart():
         self.eventPlot.setMouseEnabled(x=True, y=False)
         self.eventPlot.setYRange(0, 1.1)
         self.eventPlot.hideAxis('left')
+        self.eventPlot.scene().sigMouseMoved.connect(self.eventPlotMouseMoved)
 
         self.eventVLine = pg.InfiniteLine(angle=90, movable=False)
         self.eventPlot.addItem(self.eventVLine, ignoreBounds=True)
@@ -195,6 +196,11 @@ class EMG_FlowChart():
         self.layout.addWidget(chnContainer, 0, 1)
 
         win.show()
+
+    def eventPlotMouseMoved(self, pos):
+        if self.eventPlot.sceneBoundingRect().contains(pos):
+            mousePoint = self.eventPlot.plotItem.vb.mapSceneToView(pos)
+            self.updateVLines(mousePoint)
 
     def updateVLines(self, pos):
         for widget in self.widgets:
