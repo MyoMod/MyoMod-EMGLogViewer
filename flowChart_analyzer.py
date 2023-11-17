@@ -13,7 +13,16 @@ from pyqtgraph.flowchart import Flowchart, Node
 from pyqtgraph.flowchart.library.common import CtrlNode
 import numpy as np
 from pyqtgraph.metaarray import MetaArray
-import flowChart.nodes as EMG_Nodes
+import emg_flowChart.nodes as EMG_Nodes
+
+def colorGenerator(index):  
+    tab10 = [(31, 119, 180), (255, 127, 14), (44, 160, 44), (214, 39, 40),
+            (148, 103, 189), (140, 86, 75), (227, 119, 194), (127, 127, 127),
+            (188, 189, 34), (23, 190, 207)]
+    color = pg.mkColor(tab10[index%10])
+
+    color = pg.intColor(index, hues=7, alpha=255)
+    return color
 
 class EMG_FlowChart():
 
@@ -44,9 +53,13 @@ class EMG_FlowChart():
         elif "eventTimes" in data:
             emgTimes = data["emgTimes"]
             emgValues = data["emgValues"]
+
+            eventData = dict()
             if "eventTimes" in data:
                 eventTimes = data["eventTimes"]
                 eventValues = data["eventValues"]
+            
+            eventData["UI-Event"] = np.array([eventTimes, eventValues]).T
         else:
             emgTimes = data["emgTimes"]
             emgValues = data["emgValues"]
@@ -77,6 +90,7 @@ class EMG_FlowChart():
             self.eventPlot.plot(eventTimes, eventValues, stepMode='right', name=eventName, pen=pg.mkPen(i, width=2))
         
         self.eventPlot.addItem(self.region, ignoreBounds=True)
+        self.eventPlot.addItem(self.eventVLine, ignoreBounds=True)
         self.updateInput()
 
         # set event plot x-axis range to the same as the raw data
@@ -92,11 +106,11 @@ class EMG_FlowChart():
     def updateInput(self):
         nChannels = self.cmpltValues.shape[0]
 
-        colors = [pg.intColor(i, hues=7, alpha=255).name() for i in range(nChannels)]
+        colors = [colorGenerator(i).name() for i in range(nChannels)]
         cols = [{"name": "Channel {}".format(i+1), "units": "V"} for i in range(nChannels)]
 
         # select channels
-        channelSelection = self.getChannelSelection()
+        channelSelection = self.getChannelSelection()[:nChannels]
         values = self.cmpltValues[channelSelection,:]
         colors = [colors[i] for i in range(len(channelSelection)) if channelSelection[i]]
         cols = [cols[i] for i in range(len(channelSelection)) if channelSelection[i]]
@@ -157,6 +171,9 @@ class EMG_FlowChart():
         self.eventPlot.setYRange(0, 1.1)
         self.eventPlot.hideAxis('left')
 
+        self.eventVLine = pg.InfiniteLine(angle=90, movable=False)
+        self.eventPlot.addItem(self.eventVLine, ignoreBounds=True)
+
         # Add region selection to the event plot
         self.region = pg.LinearRegionItem()
         self.region.sigRegionChanged.connect(self.updatePlotRanges)
@@ -169,7 +186,7 @@ class EMG_FlowChart():
         channelSelectionLayout = QtWidgets.QHBoxLayout(chnContainer)
         for i in range(6):
             channelCheckbox = QtWidgets.QCheckBox("Channel {}".format(i+1), checked=True)
-            color = pg.intColor(i, hues=7, alpha=255).name()
+            color = colorGenerator(i).name()
             channelCheckbox.setStyleSheet('QCheckBox {color: '+color+';}')
             channelCheckbox.stateChanged.connect(self.updateChannels)
 
@@ -178,6 +195,11 @@ class EMG_FlowChart():
         self.layout.addWidget(chnContainer, 0, 1)
 
         win.show()
+
+    def updateVLines(self, pos):
+        for widget in self.widgets:
+            widget.VLine.setPos(pos.x())
+        self.eventVLine.setPos(pos.x())
 
     def setupFlowChart(self):
 
@@ -215,16 +237,6 @@ class EMG_FlowChart():
         self.fc.connectTerminals(f1Node['Out'], v2Node['data'])
         self.fc.connectTerminals(f2Node['Out'], v3Node['data'])
         self.fc.connectTerminals(self.fc['dataIn'], self.fc['dataOut'])
-        
-app = pg.mkQApp("Flowchart Custom Node Example")
-
-## Create main window with a grid layout inside
-win = QtWidgets.QMainWindow()
-win.setWindowTitle('pyqtgraph example: FlowchartCustomNode')
-win.resize(1000,1000)
-
-#enable antialiasing for prettier plots
-pg.setConfigOptions(antialias=True)
 
 class MultiLineView(CtrlNode):
     """Node that displays image data in an ImageView widget"""
@@ -253,6 +265,10 @@ class MultiLineView(CtrlNode):
 
         self.widget.scene().sigMouseMoved.connect(self.mouseMoved)
 
+        # Add a VLine to the widget to show the current position
+        self.VLine = pg.InfiniteLine(angle=90, movable=False)
+        self.widget.addItem(self.VLine, ignoreBounds=True)
+
         ## Initialize node with only a single input terminal
         CtrlNode.__init__(self, name, terminals={'data': {'io':'in'}})
     
@@ -277,6 +293,9 @@ class MultiLineView(CtrlNode):
             for widget in emg_flowChart.widgets:
                 if widget != self:
                     widget.widget.setTitle(widget.name())
+
+            # Set vertical line position
+            emg_flowChart.updateVLines(mousePoint)
                 
 
     def process(self, data, display=True):
@@ -288,7 +307,7 @@ class MultiLineView(CtrlNode):
             self.data = data
             self.widget.clear()
             s = self.stateGroup.state()
-
+            self.widget.addItem(self.VLine, ignoreBounds=True)
 
             self.widget.enableAutoRange('y', s['percentile'])
             self.widget.setAutoVisible(y=s['scaleToVisible'])
@@ -308,11 +327,19 @@ class MultiLineView(CtrlNode):
             self.data = None
 
 
-filename = "dataSamples/simTest1_s=12800_g=1.npz"
-filename = "dataSamples/Liana_test_s=12800_g=1.npz"
-emg_flowChart = EMG_FlowChart(filename, win)
-emg_flowChart.setupFlowChart()
-emg_flowChart.loadFromFile(filename)
-win.show()
 if __name__ == '__main__':
+    app = pg.mkQApp("Flowchart Custom Node Example")
+
+    pg.setConfigOptions(antialias=True)
+    ## Create main window with a grid layout inside
+    win = QtWidgets.QMainWindow()
+    win.setWindowTitle('pyqtgraph example: FlowchartCustomNode')
+    win.resize(1000,1000)
+
+    filename = "dataSamples/Liana_test_s=12800_g=1.npz"
+    emg_flowChart = EMG_FlowChart(filename, win)
+    emg_flowChart.setupFlowChart()
+    emg_flowChart.loadFromFile(filename)
+    win.show()
+
     pg.exec()
