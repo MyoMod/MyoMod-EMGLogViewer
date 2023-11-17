@@ -225,6 +225,7 @@ class CLI_Handler:
         ## Add widgets to the layout in their proper positions
         for i, plot in enumerate(self.plots):
             self.layout.addWidget(plot)
+            plot.getPlotItem().listDataItems()[0].setPen(pg.mkPen(pg.intColor(i, hues=7, alpha=255), width=1))
         ## Display the widget as a new window
         self.w.show()
 
