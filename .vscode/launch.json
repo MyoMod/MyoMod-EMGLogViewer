@@ -28,7 +28,7 @@
             "name": "Python: FlowChart",
             "type": "python",
             "request": "launch",
-            "program": "flowChart.py",
+            "program": "flowChart_analyzer.py",
             "console": "integratedTerminal",
             "justMyCode": false
         },
