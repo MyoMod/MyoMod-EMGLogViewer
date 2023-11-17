@@ -16,6 +16,7 @@ from flowChart_analyzer import colorGenerator
 #Params
 timeToKeep = 5
 updatesPerSecond = 10
+darkMode = False
 
 class EventListener(threading.Thread):
     def __init__(self, startTime):
@@ -199,6 +200,8 @@ class CLI_Handler:
         self.w.setWindowTitle('FreeThetics Data Logger')
         self.w.resize(800,800)
         pg.setConfigOptions(antialias=True)
+        if not darkMode:
+            pg.setConfigOption('background', 'w')
 
         ## Create some widgets to be placed inside
         self.plots = [pg.PlotWidget() for i in range(6)]
@@ -226,7 +229,7 @@ class CLI_Handler:
         ## Add widgets to the layout in their proper positions
         for i, plot in enumerate(self.plots):
             self.layout.addWidget(plot)
-            plot.getPlotItem().listDataItems()[0].setPen(pg.mkPen(colorGenerator(i), width=1))
+            plot.getPlotItem().listDataItems()[0].setPen(pg.mkPen(colorGenerator(i, darkMode), width=1))
         ## Display the widget as a new window
         self.w.show()
 

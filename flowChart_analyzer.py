@@ -15,19 +15,21 @@ import numpy as np
 from pyqtgraph.metaarray import MetaArray
 import emg_flowChart.nodes as EMG_Nodes
 
-def colorGenerator(index):  
-    tab10 = [(31, 119, 180), (255, 127, 14), (44, 160, 44), (214, 39, 40),
-            (148, 103, 189), (140, 86, 75), (227, 119, 194), (127, 127, 127),
-            (188, 189, 34), (23, 190, 207)]
-    color = pg.mkColor(tab10[index%10])
-
-    color = pg.intColor(index, hues=7, alpha=255)
+def colorGenerator(index, darkMode=False):  
+    if darkMode:
+        color = pg.intColor(index, hues=7, alpha=255)
+    else:   
+        tab10 = [(31, 119, 180), (255, 127, 14), (44, 160, 44), (214, 39, 40),
+                (148, 103, 189), (140, 86, 75), (227, 119, 194), (127, 127, 127),
+                (188, 189, 34), (23, 190, 207)]
+        color = pg.mkColor(tab10[index%10])
     return color
 
 class EMG_FlowChart():
 
-    def __init__(self, filename, win):
+    def __init__(self, filename, win, darkMode=False):
         self.filename = filename
+        self.darkMode = darkMode
 
         self.layout = None
         self.widgets = []
@@ -106,7 +108,7 @@ class EMG_FlowChart():
     def updateInput(self):
         nChannels = self.cmpltValues.shape[0]
 
-        colors = [colorGenerator(i).name() for i in range(nChannels)]
+        colors = [colorGenerator(i, self.darkMode).name() for i in range(nChannels)]
         cols = [{"name": "Channel {}".format(i+1), "units": "V"} for i in range(nChannels)]
 
         # select channels
@@ -160,7 +162,6 @@ class EMG_FlowChart():
             'dataIn': {'io': 'in'},
             'dataOut': {'io': 'out'}    
         })
-        w = self.fc.widget()
         self.layout.addWidget(self.fc.widget(), 1, 0, -1, 1)
 
         # Add events on the up-most row
@@ -178,16 +179,22 @@ class EMG_FlowChart():
         # Add region selection to the event plot
         self.region = pg.LinearRegionItem()
         self.region.sigRegionChanged.connect(self.updatePlotRanges)
+        # Set color that matches the dark mode
+        if self.darkMode:
+            self.region.setBrush(QtGui.QBrush(QtGui.QColor(0, 0, 255, 50)))
+        else:
+            self.region.setBrush(QtGui.QBrush(QtGui.QColor(0, 0, 255, 20)))
 
         self.layout.addWidget(self.eventPlot, 1, 1)
 
         # Add Channel selection on the second row
         chnContainer = QtWidgets.QWidget()
-        chnContainer.setStyleSheet("QWidget {background-color: #888;}")
+        if self.darkMode:
+            chnContainer.setStyleSheet("QWidget {background-color: #888;}")
         channelSelectionLayout = QtWidgets.QHBoxLayout(chnContainer)
         for i in range(6):
             channelCheckbox = QtWidgets.QCheckBox("Channel {}".format(i+1), checked=True)
-            color = colorGenerator(i).name()
+            color = colorGenerator(i, self.darkMode).name()
             channelCheckbox.setStyleSheet('QCheckBox {color: '+color+';}')
             channelCheckbox.stateChanged.connect(self.updateChannels)
 
@@ -336,14 +343,18 @@ class MultiLineView(CtrlNode):
 if __name__ == '__main__':
     app = pg.mkQApp("Flowchart Custom Node Example")
 
+    darkMode = False
+
     pg.setConfigOptions(antialias=True)
+    if not darkMode:
+        pg.setConfigOption('background', 'w')
     ## Create main window with a grid layout inside
     win = QtWidgets.QMainWindow()
     win.setWindowTitle('pyqtgraph example: FlowchartCustomNode')
     win.resize(1000,1000)
 
     filename = "dataSamples/Liana_test_s=12800_g=1.npz"
-    emg_flowChart = EMG_FlowChart(filename, win)
+    emg_flowChart = EMG_FlowChart(filename, win, darkMode)
     emg_flowChart.setupFlowChart()
     emg_flowChart.loadFromFile(filename)
     win.show()
