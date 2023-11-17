@@ -69,11 +69,12 @@ def movingAvgConvFilter(data, time, fs = None):
         except:
             fs = 1.0
 
+    d1 = data.asarray()
     windowSize = int(time * fs)
     # calculate moving average for each channel
-    for i in range(data.shape[0]):
-        data[i, :] = np.convolve(data[i, :], np.ones(windowSize) / windowSize, mode='same')
-    return data
+    for i in range(d1.shape[0]):
+        d1[i, :] = np.convolve(d1[i, :], np.ones(windowSize) / windowSize, mode='same')
+    return MetaArray(d1, info=data.infoCopy())
 
 def rootMeanSquare(data, time, fs = None):
     if fs is None:
@@ -83,30 +84,32 @@ def rootMeanSquare(data, time, fs = None):
         except:
             fs = 1.0
 
-    # calculate rms
-    ySquared = data ** 2
+    ySquared = data.asarray()
+    ySquared = np.square(ySquared)
+
+    ySquared = MetaArray(ySquared, info=data.infoCopy())
     # calculate moving average
     yRMS = movingAvgConvFilter(ySquared, time, fs)
     yRMS = np.sqrt(yRMS)
 
-    return yRMS
+    return MetaArray(yRMS, info=data.infoCopy())
 
 def hysteresis(data, upperThreshold, lowerThreshold):
     # apply hysteresis
-    data = data.copy()
+    d1 = data.asarray()
 
     # calculate hystersis for each channel
 
-    for channel in range(data.shape[0]):
-        data[i,0] = data[i,0] > upperThreshold
-        for i in range(1, len(data)):
-            if data[i,i] > upperThreshold:
-                data[i,i] = 1
-            elif data[i,i] < lowerThreshold:
-                data[i,i] = 0
+    for channel in range(d1.shape[0]):
+        d1[i,0] = d1[i,0] > upperThreshold
+        for i in range(1, len(d1)):
+            if d1[i,i] > upperThreshold:
+                d1[i,i] = 1
+            elif d1[i,i] < lowerThreshold:
+                d1[i,i] = 0
             else:
-                data[i,i] = data[i,i - 1]
-    return data
+                d1[i,i] = d1[i,i - 1]
+    return MetaArray(d1, info=data.infoCopy())
 
 def directFFTFilter(data, lowerFreqThreshold, upperFreqThreshold, fftsPerSecond, samplesPerFFT = 256, fftWindow = ('dpss', 1.8), fftSize = 512, fs = None):
 
