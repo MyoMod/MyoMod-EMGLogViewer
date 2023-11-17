@@ -255,7 +255,7 @@ class MultiLineView(CtrlNode):
     """Node that displays image data in an ImageView widget"""
     nodeName = 'MultiLineView'
     uiTemplate = [
-        ('percentile',  'spin', {'value': 98.0, 'step': 0.5, 'bounds': [0.0, 100.0]}),
+        ('percentile',  'spin', {'value': 99.0, 'step': 0.1, 'bounds': [0.0, 100.0]}),
         ('scaleToVisible',  'check', {'checked': True}),
     ]
     
@@ -273,8 +273,6 @@ class MultiLineView(CtrlNode):
 
         if len(emg_flowChart.widgets) != 1:
             self.widget.setXLink(emg_flowChart.widgets[0].widget)
-
-        emg_flowChart.eventPlot.showGrid(x=True, y=True)
 
         self.widget.scene().sigMouseMoved.connect(self.mouseMoved)
 
@@ -336,8 +334,8 @@ class MultiLineView(CtrlNode):
             self.widget.clear()
             s = self.stateGroup.state()
             self.widget.addItem(self.VLine, ignoreBounds=True)
-
-            self.widget.enableAutoRange('y', s['percentile'])
+            percentile = s['percentile'] / 100.0
+            self.widget.enableAutoRange('y', percentile)
             self.widget.setAutoVisible(y=s['scaleToVisible'])
 
             ## the 'data' argument is the value given to the 'data' terminal
