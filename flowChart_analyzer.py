@@ -284,12 +284,27 @@ class MultiLineView(CtrlNode):
 
         ## Initialize node with only a single input terminal
         CtrlNode.__init__(self, name, terminals={'data': {'io':'in'}})
+
+        # config
+        self._allowRemove = True
     
     def printValues(self, pos):
         print(pos)
 
+    def close(self):
+        emg_flowChart.layout.removeWidget(self.widget)
+        # if we are the first widget, then we need to update the x-link
+        if self.emg_flowChart.widgets[0] == self and len(self.emg_flowChart.widgets) > 1:
+            self.emg_flowChart.widgets[1].widget.setXLink(None)
+            for i in range(2, len(self.emg_flowChart.widgets)):
+                self.emg_flowChart.widgets[i].widget.setXLink(self.emg_flowChart.widgets[1].widget)
+
+        emg_flowChart.widgets.remove(self)
+        self.widget.deleteLater()
+        return super().close()
+
     def mouseMoved(self, pos):
-        if self.widget.sceneBoundingRect().contains(pos):
+        if self.widget.sceneBoundingRect().contains(pos) and self.data is not None:
             mousePoint = self.widget.plotItem.vb.mapSceneToView(pos)
             index = np.searchsorted(self.data.xvals('Time'), mousePoint.x())
             if index > 0 and index < len(self.data.xvals('Time')):
