@@ -25,6 +25,15 @@
         },
         
         {
+            "name": "Python: FlowChart",
+            "type": "python",
+            "request": "launch",
+            "program": "flowChart.py",
+            "console": "integratedTerminal",
+            "justMyCode": false
+        },
+        
+        {
             "name": "Python: CLI",
             "type": "python",
             "request": "launch",
@@ -32,8 +41,7 @@
             "args": [
                 " dataSamples/simTest1",
                 "-g=1",
-                "-c=5",
-                "-s=2000",
+                "-s=12800",
                 "-a",
                 "-gui"],
             "console": "integratedTerminal",
