@@ -100,9 +100,16 @@ class CLI_Handler:
         self.useGui = useGui
         self.initDone = False
 
+        self.tFirstMeasurement = None
+        self.tLastMeasurement = None
+
     def addData(self, times, values):
         if self.initDone:
             self.dataHandler.addData(times, values)
+
+            if self.tFirstMeasurement is None:
+                self.tFirstMeasurement = time.time()
+            self.tLastMeasurement = time.time()
 
         # calculate fps
         if hasattr(self, "lastTime") and hasattr(self, "avgFps"):
@@ -122,7 +129,7 @@ class CLI_Handler:
             time.sleep(0.1)
             self.run()
 
-        # Force updatePerSecond to 10
+        # Force updatePerSecond 
         self.comHandler.forceUpdatesPerSecond(updatesPerSecond)
 
         while not self.comHandler.validateConfig(self.samplerate, self.gain):
@@ -135,7 +142,6 @@ class CLI_Handler:
         print("Samplingrate: {}Hz".format(self.comHandler.sampleRate), end=' | ')
         print("Gain: {}".format(self.comHandler.gain), end='\n\n')
 
-
         self.eventListener = EventListener(time.time())
 
         self.initDone = True
@@ -146,7 +152,6 @@ class CLI_Handler:
 
         while not self.eventListener.terminated:
             self.run()  
-
         
         # get events
         self.events = self.eventListener.getEventArrays()
@@ -265,6 +270,15 @@ class CLI_Handler:
     def saveValues(self):
         currentDir = os.getcwd()
         emgTimes, emgValues = self.dataHandler.getData(0, "raw")
+
+        # compare mcu time with pc time
+        if self.tFirstMeasurement is not None:
+            timeDiff = self.tLastMeasurement - self.tFirstMeasurement
+            print("Time difference on pc: " + str(timeDiff) + "s")
+            emgTimes = emgTimes[-1] - emgTimes[0]
+            print("Time difference on mcu: " + str(emgTimes) + "s")
+
+
         filename = os.path.join(currentDir, self.filename)
         np.savez(filename, emgTimes = emgTimes, emgValues = emgValues, **self.events)
 
