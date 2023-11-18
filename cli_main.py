@@ -275,8 +275,11 @@ class CLI_Handler:
         if self.tFirstMeasurement is not None:
             timeDiff = self.tLastMeasurement - self.tFirstMeasurement
             print("Time difference on pc: " + str(timeDiff) + "s")
-            emgTimes = emgTimes[-1] - emgTimes[0]
-            print("Time difference on mcu: " + str(emgTimes) + "s")
+            mcuTime = emgTimes[-1] - emgTimes[0]
+            print("Time difference on mcu: " + str(mcuTime) + "s")
+
+            # correct time
+            emgTimes = np.linspace(0, mcuTime, len(emgTimes))
 
 
         filename = os.path.join(currentDir, self.filename)
