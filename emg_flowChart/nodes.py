@@ -45,18 +45,19 @@ class ButterBandpassFilterNode(CtrlNode):
             order = s['order']
             bidir = s['bidir']
             return {'Out':functions.butterBandpassFilter(In, lowcut, highcut, fs, order, bidir)}
-    
+
 class DirectFFTFilterNode(CtrlNode):
     """Node for applying FFT filter to data"""
     nodeName = "DirectFFTFilter"
     uiTemplate = [
-        ('lowerFrequencyThreshold', 'spin', {'value': 50., 'step': 0.5, 'dec': False, 'bounds': [0.0, 1000.0], 'suffix': 'Hz', 'siPrefix': True}),
-        ('upperFrequencyThreshold', 'spin', {'value': 300., 'step': 0.5, 'dec': False, 'bounds': [0.0, 1000.0], 'suffix': 'Hz', 'siPrefix': True}),
+        ('f lower', 'spin', {'value': 50., 'step': 0.5, 'dec': False, 'bounds': [0.0, 1000.0], 'suffix': 'Hz', 'siPrefix': True}),
+        ('f upper', 'spin', {'value': 300., 'step': 0.5, 'dec': False, 'bounds': [0.0, 1000.0], 'suffix': 'Hz', 'siPrefix': True}),
         ('fftWindow', 'combo', {'values': ['dpss', 'hann', 'hamming', 'blackman', 'bartlett'], 'value': 'dpss'}),
         ('fftWindowParam', 'spin', {'value': 1.8, 'step': 0.1, 'dec': True, 'bounds': [0.0, 1000.0]}),
         ('fftSize', 'intSpin', {'value': 512, 'min': 1, 'max': 2048}),
         ('samplesPerFFT', 'intSpin', {'value': 256, 'min': 1, 'max': 2048}),
         ('fftsPerSecond', 'intSpin', {'value': 50, 'min': 1, 'max': 500}),
+        ('clipToZero', 'check', {'checked': True}),
     ]
     
     def process(self, In, display=True):
@@ -64,14 +65,15 @@ class DirectFFTFilterNode(CtrlNode):
 
         if display and In is not None:
             s = self.stateGroup.state()
-            lowerFreqThreshold = s['lowerFrequencyThreshold']
-            upperFreqThreshold = s['upperFrequencyThreshold']
+            lowerFreqThreshold = s['f lower']
+            upperFreqThreshold = s['f upper']
             fftsPerSecond = s['fftsPerSecond']
             samplesPerFFT = s['samplesPerFFT']
             fftWindow = (s['fftWindow'], s['fftWindowParam'])
             fftSize = s['fftSize']
             fs = None
-            return {'Out':functions.directFFTFilter(In, lowerFreqThreshold, upperFreqThreshold, fftsPerSecond, samplesPerFFT , fftWindow , fftSize, fs)}
+            clip = s['clipToZero']
+            return {'Out':functions.directFFTFilter(In, lowerFreqThreshold, upperFreqThreshold, fftsPerSecond, samplesPerFFT , fftWindow , fftSize, fs, clip)}
     
 class MovingAvgConvFilterNode(CtrlNode):
     """Node for applying moving average convolution filter to data"""
@@ -113,6 +115,15 @@ class HysteresisNode(CtrlNode):
         ('lowerThreshold', 'spin', {'value': 0.2, 'step': 0.1, 'dec': True, 'bounds': [0.0, None]}),
     ]
     
+    def __init__(self, name):
+        terminals={
+            'In': {'io': 'in'},
+            'binOut': {'io': 'out'}, 
+            'Out': {'io': 'out'}    
+        }
+        CtrlNode.__init__(self, name, terminals=terminals)
+
+
     def process(self, In, display=True):
         """apply hysteresis to data"""
 
@@ -120,4 +131,25 @@ class HysteresisNode(CtrlNode):
             s = self.stateGroup.state()
             upperThreshold = s['upperThreshold']
             lowerThreshold = s['lowerThreshold']
-            return {'Out':functions.hysteresis(In, upperThreshold, lowerThreshold)}
+            hystVal = functions.hysteresis(In, upperThreshold, lowerThreshold)
+            return {'Out':hystVal * In, 'binOut':hystVal}
+        
+class SquareNode(CtrlNode):
+    """Node for squaring data"""
+    nodeName = "Square"
+    
+    def process(self, In, display=True):
+        """square data"""
+
+        if display and In is not None:
+            return {'Out':functions.square(In)}
+        
+class SquareRootNode(CtrlNode):
+    """Node for calculating square root of data"""
+    nodeName = "SquareRoot"
+    
+    def process(self, In, display=True):
+        """calculate square root of data"""
+
+        if display and In is not None:
+            return {'Out':functions.squareRoot(In)}

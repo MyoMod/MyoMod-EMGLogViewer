@@ -69,7 +69,7 @@ def movingAvgConvFilter(data, time, fs = None):
         except:
             fs = 1.0
 
-    d1 = data.asarray()
+    d1 = data.asarray().copy()
     windowSize = int(time * fs)
     # calculate moving average for each channel
     for i in range(d1.shape[0]):
@@ -94,24 +94,52 @@ def rootMeanSquare(data, time, fs = None):
 
     return MetaArray(yRMS, info=data.infoCopy())
 
+def square(data):
+    d1 = data.asarray().copy()
+    d1 = np.square(d1)
+    return MetaArray(d1, info=data.infoCopy())
+
+def squareRoot(data):
+    d1 = data.asarray().copy()
+    d1 = np.sqrt(d1)
+    return MetaArray(d1, info=data.infoCopy())
+
+def rootMeanSquare(data, time, fs = None):
+    if fs is None:
+        try:
+            tvals = data.xvals('Time')
+            fs =  (len(tvals)-1) / (tvals[-1]-tvals[0])
+        except:
+            fs = 1.0
+
+    ySquared = data.asarray()
+    ySquared = np.square(ySquared)
+
+    ySquared = MetaArray(ySquared, info=data.infoCopy())
+    # calculate moving average
+    yRMS = movingAvgConvFilter(ySquared, time, fs)
+    yRMS = np.sqrt(yRMS)
+
+    return MetaArray(yRMS, info=data.infoCopy())
+
 def hysteresis(data, upperThreshold, lowerThreshold):
     # apply hysteresis
-    d1 = data.asarray()
+    d1 = data.asarray().copy()
 
     # calculate hystersis for each channel
 
     for channel in range(d1.shape[0]):
-        d1[i,0] = d1[i,0] > upperThreshold
-        for i in range(1, len(d1)):
-            if d1[i,i] > upperThreshold:
-                d1[i,i] = 1
-            elif d1[i,i] < lowerThreshold:
-                d1[i,i] = 0
+        d1[channel,0] = d1[channel,0] > upperThreshold
+        for i in range(1, d1.shape[1]):
+            if d1[channel,i] > upperThreshold:
+                d1[channel,i] = 1
+            elif d1[channel,i] < lowerThreshold:
+                d1[channel,i] = 0
             else:
-                d1[i,i] = d1[i,i - 1]
+                d1[channel,i] = d1[channel,i - 1]
     return MetaArray(d1, info=data.infoCopy())
 
-def directFFTFilter(data, lowerFreqThreshold, upperFreqThreshold, fftsPerSecond, samplesPerFFT = 256, fftWindow = ('dpss', 1.8), fftSize = 512, fs = None):
+def directFFTFilter(data, lowerFreqThreshold, upperFreqThreshold, fftsPerSecond, samplesPerFFT = 256, fftWindow = ('dpss', 1.8), fftSize = 512, fs = None, clip = True):
 
     if fs is None:
         try:
@@ -151,4 +179,8 @@ def directFFTFilter(data, lowerFreqThreshold, upperFreqThreshold, fftsPerSecond,
 
     info = data.infoCopy()
     info[1]['values'] = t
+
+    if clip:
+        directFFT = np.clip(directFFT, 0, None)
+
     return MetaArray(directFFT, info=info)
