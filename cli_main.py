@@ -279,7 +279,7 @@ class CLI_Handler:
             print("Time difference on mcu: " + str(mcuTime) + "s")
 
             # correct time
-            emgTimes = np.linspace(0, mcuTime, len(emgTimes))
+            emgTimes = np.linspace(0, timeDiff, len(emgTimes))
 
 
         filename = os.path.join(currentDir, self.filename)

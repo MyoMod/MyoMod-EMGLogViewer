@@ -27,8 +27,7 @@ def colorGenerator(index, darkMode=False):
 
 class EMG_FlowChart():
 
-    def __init__(self, filename, win, darkMode=False):
-        self.filename = filename
+    def __init__(self, win, darkMode=False):
         self.darkMode = darkMode
 
         self.layout = None
@@ -351,10 +350,8 @@ if __name__ == '__main__':
     win.setWindowTitle('pyqtgraph example: FlowchartCustomNode')
     win.resize(1000,1000)
 
-    filename = "dataSamples/Liana_test_s=12800_g=1.npz"
-    emg_flowChart = EMG_FlowChart(filename, win, darkMode)
+    emg_flowChart = EMG_FlowChart(win, darkMode)
     emg_flowChart.setupFlowChart()
-    emg_flowChart.loadFromFile(filename)
     win.show()
 
     pg.exec()
