@@ -163,6 +163,7 @@ class EMG_FlowChart():
             'dataOut': {'io': 'out'}    
         })
         self.layout.addWidget(self.fc.widget(), 1, 0, -1, 1)
+        self.layout.setColumnMinimumWidth(0, 400)
 
         # Add events on the up-most row
         self.eventPlot = pg.PlotWidget(title="Events")
@@ -214,7 +215,7 @@ class EMG_FlowChart():
             widget.VLine.setPos(pos.x())
         self.eventVLine.setPos(pos.x())
 
-    def setupFlowChart(self):
+    def setupFlowChart(self, defaultPath = None):
 
         library = fclib.LIBRARY.copy() # start with the default node set
         library.addNodeType(MultiLineView, [('Display',)])
@@ -224,32 +225,16 @@ class EMG_FlowChart():
         library.addNodeType(EMG_Nodes.HysteresisNode, [('EMG_Filter',)])
         library.addNodeType(EMG_Nodes.RootMeanSquareNode, [('EMG_Filter',)])
         library.addNodeType(EMG_Nodes.MovingAvgConvFilterNode, [('EMG_Filter',)])
+        library.addNodeType(EMG_Nodes.SquareNode, [('EMG_Filter',)])
+        library.addNodeType(EMG_Nodes.SquareRootNode, [('EMG_Filter',)])
 
 
         self.fc.setLibrary(library)
 
-
-        ## Now we will programmatically add nodes to define the function of the flowchart.
-        ## Normally, the user will do this manually or by loading a pre-generated
-        ## flowchart file.
-
-        v1Node = self.fc.createNode('MultiLineView', pos=(0, -150), name="Raw Data")
-
-        v2Node = self.fc.createNode('MultiLineView', pos=(150, -0), name="Notch Filtered Data")
-
-        v3Node = self.fc.createNode('MultiLineView', pos=(150, 150), name="Direct FFT Filtered Data")
-
-        f1Node = self.fc.createNode('NotchFilter', pos=(100, 0))
-        f1Node.ctrls['cutoff'].setValue(50)
-        f2Node = self.fc.createNode('DirectFFTFilter', pos=(100, 150))
-
-
-        self.fc.connectTerminals(self.fc['dataIn'], v1Node['data'])
-        self.fc.connectTerminals(self.fc['dataIn'], f1Node['In'])
-        self.fc.connectTerminals(self.fc['dataIn'], f2Node['In'])
-        self.fc.connectTerminals(f1Node['Out'], v2Node['data'])
-        self.fc.connectTerminals(f2Node['Out'], v3Node['data'])
-        self.fc.connectTerminals(self.fc['dataIn'], self.fc['dataOut'])
+        if defaultPath is None:
+            self.fc.loadFile("default.fc")
+        else:
+            self.fc.loadFile(defaultPath)
 
 class MultiLineView(CtrlNode):
     """Node that displays image data in an ImageView widget"""
