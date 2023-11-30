@@ -89,7 +89,10 @@ class MovingAvgConvFilterNode(CtrlNode):
             s = self.stateGroup.state()
             time = s['time']
             fs = None
-            return {'Out':functions.movingAvgConvFilter(In, time, fs)}
+            if time > 0:
+                return {'Out':functions.movingAvgConvFilter(In, time, fs)}
+            else:
+                return {'Out':In}
     
 class RootMeanSquareNode(CtrlNode):
     """Node for calculating root mean square of data"""

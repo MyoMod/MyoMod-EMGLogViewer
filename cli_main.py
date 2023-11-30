@@ -114,7 +114,7 @@ class CLI_Handler:
         # calculate fps
         if hasattr(self, "lastTime") and hasattr(self, "avgFps"):
             self.fps = 1 / (perf_counter() - self.lastTime)
-            self.avgFps = self.avgFps * 0.8 + self.fps * 0.2
+            self.avgFps = self.avgFps * 0.95 + self.fps * 0.05
         self.lastTime = perf_counter()
 
     def start(self):
@@ -235,6 +235,7 @@ class CLI_Handler:
         for i, plot in enumerate(self.plots):
             self.layout.addWidget(plot)
             plot.getPlotItem().listDataItems()[0].setPen(pg.mkPen(colorGenerator(i, darkMode), width=1))
+            plot.getPlotItem().getAxis('left').setLabel(units='V')
         ## Display the widget as a new window
         self.w.show()
 

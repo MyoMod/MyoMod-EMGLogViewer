@@ -1,0 +1,41 @@
+pos: (0.0, 0.0)
+bypass: False
+terminals:
+    dataIn:
+        io: 'in'
+        multi: False
+        optional: False
+        renamable: False
+        removable: False
+        multiable: False
+    dataOut:
+        io: 'out'
+        multi: False
+        optional: False
+        renamable: False
+        removable: False
+        multiable: False
+nodes: [{'class': 'MultiLineView', 'name': 'Raw Data', 'pos': (0.0, -150.0), 'state': {'pos': (0.0, -150.0), 'bypass': False, 'ctrl': {'percentile': 100.0, 'scaleToVisible': True}}}, {'class': 'DirectFFTFilter', 'name': 'DirectFFTFilter.0', 'pos': (18.38064120651086, 53.460973470066676), 'state': {'pos': (18.38064120651086, 53.460973470066676), 'bypass': False, 'ctrl': {'f lower': 50.0, 'f upper': 300.0, 'fftWindow': 'dpss', 'fftWindowParam': 1.8, 'fftSize': 512, 'samplesPerFFT': 256, 'fftsPerSecond': 50}}}, {'class': 'ButterBandpassFilter', 'name': 'ButterBandpassFilter.0', 'pos': (29.70459715271295, -54.8879935875363), 'state': {'pos': (29.70459715271295, -54.8879935875363), 'bypass': False, 'ctrl': {'lowcut': 50.0, 'highcut': 300.0, 'bidir': False, 'order': 4}}}, {'class': 'MovingAvgConvFilter', 'name': 'MovingAvgConvFilter.0', 'pos': (163.64479185208097, 52.73437465727545), 'state': {'pos': (163.64479185208097, 52.73437465727545), 'bypass': False, 'ctrl': {'time': 0.2}}}, {'class': 'NotchFilter', 'name': 'NotchFilter.0', 'pos': (166.6996910570449, -53.535278348417535), 'state': {'pos': (166.6996910570449, -53.535278348417535), 'bypass': False, 'ctrl': {'cutoff': 50.0, 'bidir': False, 'quality': 30.0}}}, {'class': 'MultiLineView', 'name': 'BandpassFiltered', 'pos': (168.36974435025354, -118.9548021028557), 'state': {'pos': (168.36974435025354, -118.9548021028557), 'bypass': False, 'ctrl': {'percentile': 100.0, 'scaleToVisible': True}}}, {'class': 'RootMeanSquare', 'name': 'RootMeanSquare.0', 'pos': (293.8704788391667, -54.01036607362778), 'state': {'pos': (293.8704788391667, -54.01036607362778), 'bypass': False, 'ctrl': {'time': 0.2}}}, {'class': 'Hysteresis', 'name': 'Hysteresis.0', 'pos': (305.85417623584675, 54.87516466240004), 'state': {'pos': (305.85417623584675, 54.87516466240004), 'bypass': False, 'ctrl': {'upperThreshold': 10.0, 'lowerThreshold': 5.0}}}, {'class': 'MultiLineView', 'name': 'D FFT', 'pos': (332.65170290549304, 122.5621143320264), 'state': {'pos': (332.65170290549304, 122.5621143320264), 'bypass': False, 'ctrl': {'percentile': 99.0, 'scaleToVisible': True}}}, {'class': 'MultiLineView', 'name': 'D FFT Hyst', 'pos': (468.8503055785735, 53.69422704672672), 'state': {'pos': (468.8503055785735, 53.69422704672672), 'bypass': False, 'ctrl': {'percentile': 100.0, 'scaleToVisible': True}}}, {'class': 'MultiLineView', 'name': 'Notch and bandpass Filtered Data', 'pos': (481.2735055236627, -54.75548231587646), 'state': {'pos': (481.2735055236627, -54.75548231587646), 'bypass': False, 'ctrl': {'percentile': 100.0, 'scaleToVisible': True}}}]
+connects: [('Input', 'dataIn', 'ButterBandpassFilter.0', 'In'), ('DirectFFTFilter.0', 'Out', 'MovingAvgConvFilter.0', 'In'), ('MovingAvgConvFilter.0', 'Out', 'Hysteresis.0', 'In'), ('MovingAvgConvFilter.0', 'Out', 'D FFT', 'data'), ('Input', 'dataIn', 'DirectFFTFilter.0', 'In'), ('Input', 'dataIn', 'Raw Data', 'data'), ('RootMeanSquare.0', 'Out', 'Notch and bandpass Filtered Data', 'data'), ('ButterBandpassFilter.0', 'Out', 'NotchFilter.0', 'In'), ('Input', 'dataIn', 'Output', 'dataOut'), ('ButterBandpassFilter.0', 'Out', 'BandpassFiltered', 'data'), ('NotchFilter.0', 'Out', 'RootMeanSquare.0', 'In'), ('Hysteresis.0', 'Out', 'D FFT Hyst', 'data')]
+inputNode:
+    pos: (-150.0, 0.0)
+    bypass: False
+    terminals:
+        dataIn:
+            io: 'out'
+            multi: False
+            optional: False
+            renamable: False
+            removable: False
+            multiable: False
+outputNode:
+    pos: (300.0, 0.0)
+    bypass: False
+    terminals:
+        dataOut:
+            io: 'in'
+            multi: False
+            optional: False
+            renamable: False
+            removable: False
+            multiable: False
