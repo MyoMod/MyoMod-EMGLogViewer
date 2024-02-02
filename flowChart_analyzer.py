@@ -252,6 +252,7 @@ class MultiLineView(CtrlNode):
         self.widget = pg.PlotWidget(title=name)
         self.widget.showGrid(x=True, y=True)
         self.widget.getPlotItem().getAxis('left').setLabel(units='V')
+        self.widget.getPlotItem().getAxis('left').setStyle(tickTextWidth = 30, autoExpandTextSpace=False)
 
         emg_flowChart.layout.addWidget(self.widget, len(emg_flowChart.widgets)+2, 1)
         emg_flowChart.widgets.append(self)
