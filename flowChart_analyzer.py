@@ -221,6 +221,7 @@ class EMG_FlowChart():
         library.addNodeType(EMG_Nodes.NotchFilterNode, [('EMG_Filter',)])
         library.addNodeType(EMG_Nodes.ButterBandpassFilterNode, [('EMG_Filter',)])
         library.addNodeType(EMG_Nodes.DirectFFTFilterNode, [('EMG_Filter',)])
+        library.addNodeType(EMG_Nodes.DirectFFTFilterCMSISNode, [('EMG_Filter',)])
         library.addNodeType(EMG_Nodes.HysteresisNode, [('EMG_Filter',)])
         library.addNodeType(EMG_Nodes.RootMeanSquareNode, [('EMG_Filter',)])
         library.addNodeType(EMG_Nodes.MovingAvgConvFilterNode, [('EMG_Filter',)])
