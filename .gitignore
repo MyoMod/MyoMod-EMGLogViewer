@@ -8,3 +8,15 @@ __pycache__/
 test.py
 
 screenshots/
+
+analyzer.py
+
+cmsisdspTest.py
+
+rec_2.dat
+
+flowChartExample.py
+
+gui.py
+
+pyqtgraphExamples.py
