@@ -501,9 +501,12 @@ class Spectrogram(CtrlNode):
                     self.unit = Sxx._info[0]['units']
                     self.color = Sxx._info[0]['colors'][channel]
 
-                self.hist.setLevels(np.min(self.Sxx), np.max(self.Sxx))
                 self.img.setImage(self.Sxx)
 
+                maxPercentile = np.percentile(self.Sxx, 99)
+                self.hist.setHistogramRange(np.min(self.Sxx), maxPercentile)
+                self.hist.setLevels(min = np.min(self.Sxx), max = maxPercentile)
+                
                 #scale the X and Y Axis to time and frequency (standard is pixels)
                 tr = QtGui.QTransform()
                 tr.scale(self.t[-1]/np.size(self.Sxx, axis=1),
