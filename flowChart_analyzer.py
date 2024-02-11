@@ -510,8 +510,6 @@ class Spectrogram(CtrlNode):
                         (self.f[-1])/np.size(self.Sxx, axis=0))
                 self.img.setTransform(tr)
 
-                #self.p1.setLimits(xMin=t[0], xMax=t[-1], yMin=f[0], yMax=f[-1])
-
                 self.p1.setLimits(yMin=self.f[0], yMax=self.f[-1])
                 self.p1.setLabel('left', 'f', units='Hz')
 

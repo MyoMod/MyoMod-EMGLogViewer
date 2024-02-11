@@ -63,7 +63,7 @@ class DirectFFTFilterNode(CtrlNode):
     def __init__(self, name):
         terminals={
             'In': {'io': 'in'},
-            'Sxx0': {'io': 'out'}, 
+            'Sxx': {'io': 'out'}, 
             'Out': {'io': 'out'}   
         }
         CtrlNode.__init__(self, name, terminals=terminals)
@@ -90,7 +90,7 @@ class DirectFFTFilterNode(CtrlNode):
                                                               fftSize=fftSize, 
                                                               fs=fs, 
                                                               clip=clip)
-            return {'Out':filteredData, 'Sxx0':SxxMeta}
+            return {'Out':filteredData, 'Sxx':SxxMeta}
     
 class DirectFFTFilterCMSISNode(CtrlNode):
     """Node for applying FFT filter to data using CMSIS-DSP"""
@@ -111,7 +111,7 @@ class DirectFFTFilterCMSISNode(CtrlNode):
     def __init__(self, name):
         terminals={
             'In': {'io': 'in'},
-            'Sxx0': {'io': 'out'}, 
+            'Sxx': {'io': 'out'}, 
             'Out': {'io': 'out'}    
         }
         CtrlNode.__init__(self, name, terminals=terminals)
@@ -140,7 +140,7 @@ class DirectFFTFilterCMSISNode(CtrlNode):
                                                          fftSize=fftSize, 
                                                          fs=fs, 
                                                          clip=clip)
-            return {'Out':filteredData, 'Sxx0':SxxMeta}
+            return {'Out':filteredData, 'Sxx':SxxMeta}
 
 class MovingAvgConvFilterNode(CtrlNode):
     """Node for applying moving average convolution filter to data"""
