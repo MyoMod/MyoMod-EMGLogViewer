@@ -454,8 +454,8 @@ class Spectrogram(CtrlNode):
                 value = self.Sxx[fIndex, tIndex]
                 unit = self.unit
                 valueString = pg.siFormat(value, suffix=unit)
-                string = "Time: {:.2f}, ".format(mousePoint.x())
-                string += "Freq: {:.2f}, ".format(mousePoint.y())
+                string = "Time: {:.2f}s, ".format(mousePoint.x())
+                string += "Freq: {:.2f}Hz, ".format(mousePoint.y())
                 color = self.color
                 string += "<span style='color: {}'>{}</span>".format(color, valueString)
                 self.setTitle(string)
@@ -508,7 +508,6 @@ class Spectrogram(CtrlNode):
                 tr = QtGui.QTransform()
                 tr.scale(self.t[-1]/np.size(self.Sxx, axis=1),
                         (self.f[-1])/np.size(self.Sxx, axis=0))
-                tr.translate(0, self.f[0])
                 self.img.setTransform(tr)
 
                 #self.p1.setLimits(xMin=t[0], xMax=t[-1], yMin=f[0], yMax=f[-1])
