@@ -1,0 +1,41 @@
+pos: (0.0, 0.0)
+bypass: False
+terminals:
+    dataIn:
+        io: 'in'
+        multi: False
+        optional: False
+        renamable: False
+        removable: False
+        multiable: False
+    dataOut:
+        io: 'out'
+        multi: False
+        optional: False
+        renamable: False
+        removable: False
+        multiable: False
+nodes: [{'class': 'MultiLineView', 'name': 'Raw Data', 'pos': (-8.124234520096593, -188.2999627375982), 'state': {'pos': (-8.124234520096593, -188.2999627375982), 'bypass': False, 'ctrl': {'percentile': 100.0, 'scaleToVisible': True}}}, {'class': 'Spectrogram', 'name': 'Spectrogram.0', 'pos': (24.114919819071474, -117.27954389272843), 'state': {'pos': (24.114919819071474, -117.27954389272843), 'bypass': False, 'ctrl': {'channel': '1'}}}]
+connects: [('Input', 'dataIn', 'Raw Data', 'data'), ('Input', 'dataIn', 'Output', 'dataOut'), ('Input', 'dataIn', 'Spectrogram.0', 'data')]
+inputNode:
+    pos: (-150.0, 0.0)
+    bypass: False
+    terminals:
+        dataIn:
+            io: 'out'
+            multi: False
+            optional: False
+            renamable: False
+            removable: False
+            multiable: False
+outputNode:
+    pos: (300.0, 0.0)
+    bypass: False
+    terminals:
+        dataOut:
+            io: 'in'
+            multi: False
+            optional: False
+            renamable: False
+            removable: False
+            multiable: False

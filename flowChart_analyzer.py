@@ -11,8 +11,10 @@ import pyqtgraph as pg
 import pyqtgraph.flowchart.library as fclib
 from pyqtgraph.flowchart import Flowchart, Node
 from pyqtgraph.flowchart.library.common import CtrlNode
-import numpy as np
+import scipy as sp
+import scipy.signal as signal
 from pyqtgraph.metaarray import MetaArray
+
 import emg_flowChart.nodes as EMG_Nodes
 
 def colorGenerator(index, darkMode=False):  
@@ -137,7 +139,7 @@ class EMG_FlowChart():
 
     def updatePlotRanges(self):
         timeRange = self.region.getRegion()
-        [widget.widget.setXRange(*timeRange, padding = 0) for widget in self.widgets]
+        [widget.setXRange(*timeRange, padding = 0) for widget in self.widgets]
         #self.updateInput()
 
     def selectFile(self):
@@ -217,6 +219,7 @@ class EMG_FlowChart():
     def setupFlowChart(self, defaultPath = None):
 
         library = fclib.LIBRARY.copy() # start with the default node set
+        library.addNodeType(Spectrogram, [('Display',)])
         library.addNodeType(MultiLineView, [('Display',)])
         library.addNodeType(EMG_Nodes.NotchFilterNode, [('EMG_Filter',)])
         library.addNodeType(EMG_Nodes.ButterBandpassFilterNode, [('EMG_Filter',)])
@@ -259,7 +262,7 @@ class MultiLineView(CtrlNode):
         emg_flowChart.widgets.append(self)
 
         if len(emg_flowChart.widgets) != 1:
-            self.widget.setXLink(emg_flowChart.widgets[0].widget)
+            self.setXLink(emg_flowChart.widgets[0].getWidget())
 
         self.widget.scene().sigMouseMoved.connect(self.mouseMoved)
 
@@ -280,9 +283,9 @@ class MultiLineView(CtrlNode):
         emg_flowChart.layout.removeWidget(self.widget)
         # if we are the first widget, then we need to update the x-link
         if self.emg_flowChart.widgets[0] == self and len(self.emg_flowChart.widgets) > 1:
-            self.emg_flowChart.widgets[1].widget.setXLink(None)
+            self.emg_flowChart.widgets[1].setXLink(None)
             for i in range(2, len(self.emg_flowChart.widgets)):
-                self.emg_flowChart.widgets[i].widget.setXLink(self.emg_flowChart.widgets[1].widget)
+                self.emg_flowChart.widgets[i].setXLink(self.emg_flowChart.widgets[1].getWidget())
 
         emg_flowChart.widgets.remove(self)
         self.widget.deleteLater()
@@ -305,11 +308,22 @@ class MultiLineView(CtrlNode):
             # hide label for other plots
             for widget in emg_flowChart.widgets:
                 if widget != self:
-                    widget.widget.setTitle(widget.name())
+                    widget.setTitle(widget.name())
 
             # Set vertical line position
             emg_flowChart.updateVLines(mousePoint)
-                
+
+    def setTitle(self, title):
+        self.widget.setTitle(title)
+
+    def setXLink(self, widget):
+        self.widget.setXLink(widget)
+
+    def setXRange(self, *args, **kwargs):
+        self.widget.setXRange(*args, **kwargs)
+
+    def getWidget(self):
+        return self.widget                
 
     def process(self, data, display=True):
         ## if process is called with display=False, then the flowchart is being operated
@@ -340,6 +354,178 @@ class MultiLineView(CtrlNode):
             self.data = None
 
 
+class Spectrogram(CtrlNode):
+    """Node that displays the spectogram of the selected channel in a ImageView widget"""
+    nodeName = 'Spectrogram'
+    uiTemplate = [
+        ('channel', 'combo', {'values': [str(i+1) for i in range(6)], 'value': '1'}),
+    ]
+    
+    
+    def __init__(self, name):
+        global emg_flowChart
+
+        self.emg_flowChart = emg_flowChart
+
+        self.win = pg.GraphicsLayoutWidget()
+        # A plot area (ViewBox + axes) for displaying the image
+        self.p1 = self.win.addPlot()
+        self.p1.setDefaultPadding(0)
+        self.p1.hideAxis('bottom')
+        self.p1.getAxis('left').setStyle(tickTextWidth = 30, autoExpandTextSpace=False)
+
+
+        # Item for displaying image data
+        self.img = pg.ImageItem()
+        self.img.setOpts(axisOrder='row-major')
+        self.p1.addItem(self.img)
+        # Add a histogram with which to control the gradient of the image
+        self.hist = pg.HistogramLUTItem()
+        # Link the histogram to the image
+        self.hist.setImageItem(self.img)
+
+        self.hist.gradient.restoreState(
+            {'mode': 'rgb',
+            'ticks': [(0.5, (0, 182, 188, 255)),
+                    (1.0, (246, 111, 0, 255)),
+                    (0.0, (75, 0, 113, 255))]})
+        
+        # If you don't add the histogram to the window, it stays invisible, but I find it useful.
+        self.win.addItem(self.hist)
+
+        emg_flowChart.layout.addWidget(self.win, len(emg_flowChart.widgets)+2, 1)
+        emg_flowChart.widgets.append(self)
+
+        if len(emg_flowChart.widgets) != 1:
+            self.setXLink(emg_flowChart.widgets[0].getWidget())
+
+        self.p1.scene().sigMouseMoved.connect(self.mouseMoved)
+
+        # Add a VLine to the widget to show the current position
+        self.VLine = pg.InfiniteLine(angle=90, movable=False)
+        self.p1.addItem(self.VLine)
+
+        ## Initialize node with only a single input terminal
+        CtrlNode.__init__(self, name, terminals={   'timeSeries': {'io':'in'},
+                                                    'Sxx': {'io':'in'}})
+
+        self.setTitle(name)
+
+        # config
+        self._allowRemove = True
+
+        self.Sxx = None
+        self.f = None
+        self.t = None
+    
+    def printValues(self, pos):
+        print(pos)
+
+    def setTitle(self, title):
+        self.p1.setTitle(title)
+
+    def setXLink(self, widget):
+        self.p1.setXLink(widget)
+
+    def setXRange(self, *args, **kwargs):
+        self.p1.setXRange(*args, **kwargs)
+
+    def getWidget(self):
+        return self.p1    
+
+    def close(self):
+        emg_flowChart.layout.removeWidget(self.win)
+        # if we are the first widget, then we need to update the x-link
+        if self.emg_flowChart.widgets[0] == self and len(self.emg_flowChart.widgets) > 1:
+            self.emg_flowChart.widgets[1].setXLink(None)
+            for i in range(2, len(self.emg_flowChart.widgets)):
+                self.emg_flowChart.widgets[i].setXLink(self.emg_flowChart.widgets[1].getWidget())
+
+        emg_flowChart.widgets.remove(self)
+        self.win.deleteLater()
+        return super().close()
+
+    def mouseMoved(self, pos):
+        if self.p1.sceneBoundingRect().contains(pos) and self.Sxx is not None:
+            mousePoint = self.p1.vb.mapSceneToView(pos)
+            tIndex = np.searchsorted(self.t, mousePoint.x())
+            fIndex = np.searchsorted(self.f, mousePoint.y())
+            if tIndex > 0 and tIndex < len(self.t) and fIndex > 0 and fIndex < len(self.f):
+                value = self.Sxx[fIndex, tIndex]
+                unit = self.unit
+                valueString = pg.siFormat(value, suffix=unit)
+                string = "Time: {:.2f}, ".format(mousePoint.x())
+                string += "Freq: {:.2f}, ".format(mousePoint.y())
+                color = self.color
+                string += "<span style='color: {}'>{}</span>".format(color, valueString)
+                self.setTitle(string)
+
+            # hide label for other plots
+            for widget in emg_flowChart.widgets:
+                if widget != self:
+                    widget.setTitle(widget.name())
+
+            # Set vertical line position
+            emg_flowChart.updateVLines(mousePoint)
+                
+
+    def process(self, timeSeries, Sxx, display=True):
+        ## if process is called with display=False, then the flowchart is being operated
+        ## in batch processing mode, so we should skip displaying to improve performance.
+
+        if display and self.win is not None:
+            # calculate the spectrogram
+            s = self.stateGroup.state()
+            channel = int(s['channel']) - 1
+
+            if timeSeries is None and Sxx is None:
+                self.img.setImage(np.zeros((1,1))) # give a blank array to clear the view
+            else:
+                if timeSeries is not None:
+                    if channel >= timeSeries.shape[0]:
+                        print("Channel {} does not exist".format(channel))
+                        channel = 0
+
+                    signalValues = timeSeries[channel,:]
+                    timeValues = timeSeries.axisValues('Time')
+
+                    self.unit = timeSeries._info[0]['units']
+                    self.color = timeSeries._info[0]['colors'][channel]
+
+                    self.f, self.t, self.Sxx = signal.spectrogram(signalValues, fs=1/(timeValues[1]-timeValues[0]), nperseg=256, noverlap=256*0.75, nfft=512)
+                else:
+                    self.f = Sxx._info[1]['values']
+                    self.t = Sxx._info[2]['values']
+                    self.Sxx = Sxx[channel].asarray().copy()
+
+                    self.unit = Sxx._info[0]['units']
+                    self.color = Sxx._info[0]['colors'][channel]
+
+                self.hist.setLevels(np.min(self.Sxx), np.max(self.Sxx))
+                self.img.setImage(self.Sxx)
+
+                #scale the X and Y Axis to time and frequency (standard is pixels)
+                tr = QtGui.QTransform()
+                tr.scale(self.t[-1]/np.size(self.Sxx, axis=1),
+                        (self.f[-1])/np.size(self.Sxx, axis=0))
+                tr.translate(0, self.f[0])
+                self.img.setTransform(tr)
+
+                #self.p1.setLimits(xMin=t[0], xMax=t[-1], yMin=f[0], yMax=f[-1])
+
+                self.p1.setLimits(yMin=self.f[0], yMax=self.f[-1])
+                self.p1.setLabel('left', 'f', units='Hz')
+
+                self.label = pg.TextItem("this is a nice label")
+                self.p1.addItem(self.label)
+
+
+        else:
+            self.Sxx = None
+            self.f = None
+            self.t = None
+
+
 if __name__ == '__main__':
     app = pg.mkQApp("Flowchart Custom Node Example")
 
@@ -356,5 +542,7 @@ if __name__ == '__main__':
     emg_flowChart = EMG_FlowChart(win, darkMode)
     emg_flowChart.setupFlowChart()
     win.show()
+
+    emg_flowChart.loadFromFile("dataSamples/laptopAtDesktopWithoutPower_s=2000_g=1_c=5.npz")
 
     pg.exec()

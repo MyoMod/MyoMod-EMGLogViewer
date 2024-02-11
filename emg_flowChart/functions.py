@@ -156,7 +156,7 @@ def directFFTFilterCMSIS(data, lowerFreqThreshold, upperFreqThreshold, normalizi
 
     if fftWindow[0] == 'hann':
         window = dsp.arm_hanning_f32(samplesPerFFT)
-    elif fftWindow[0] == 'hamming':
+    else:
         window = dsp.arm_hamming_f32(samplesPerFFT)
     windowedData = np.zeros(samplesPerFFT, dtype=np.float32)
 
@@ -212,17 +212,17 @@ def directFFTFilterCMSIS(data, lowerFreqThreshold, upperFreqThreshold, normalizi
             directFFT[chn][i] = dsp.arm_accumulate_f32(filteredFft)
             directFFT[chn][i] = directFFT[chn][i] / (np.sum(fSlice) * 2)
             
-    info = data.infoCopy()
+    infoIn = data.infoCopy()
     t = np.linspace(data.xvals('Time')[0], data.xvals('Time')[-1], data.shape[1] // samplesPerCycle)
-    info[1]['values'] = t
+    infoIn[1]['values'] = t
 
     if clip:
         directFFT = np.clip(directFFT, 0, None)
 
 
-    SxxMeta = MetaArray(Sxx, info=[{'name': 'Channel'}, {'name': 'Frequency', 'values': f}, {'name': 'Time', 'values': t}])
+    SxxMeta = MetaArray(Sxx, info=[infoIn[0], {'name': 'Frequency', 'values': f}, {'name': 'Time', 'values': t}])
 
-    return MetaArray(directFFT, info=info), SxxMeta
+    return MetaArray(directFFT, info=infoIn), SxxMeta
 
 def directFFTFilter(data, lowerFreqThreshold, upperFreqThreshold, fftsPerSecond, samplesPerFFT = 256, fftWindow = ('dpss', 1.8), fftSize = 512, fs = None, clip = True):
 
@@ -249,11 +249,7 @@ def directFFTFilter(data, lowerFreqThreshold, upperFreqThreshold, fftsPerSecond,
         f, t, Sxx = signal.spectrogram(data[chn,:], fs, nfft=fftSize, nperseg=samplesPerFFT, \
                                     noverlap=noverlap, scaling='density', window=fftWindow)
         
-        if SxxReturn.shape[1] == 0:
-            SxxReturn = np.zeros((data.shape[0], Sxx.shape[0], Sxx.shape[1]))
-            fReturn = f
-            tReturn = t
-        SxxReturn[chn] = Sxx
+
 
         freqSlice = np.where((f > lowerFreqThreshold) & (f < upperFreqThreshold))
         f = f[freqSlice]
@@ -266,6 +262,11 @@ def directFFTFilter(data, lowerFreqThreshold, upperFreqThreshold, fftsPerSecond,
         
         # Use inactivity FFT to filter the actual FFT and normalize it to 0 for inactivity
         spectrogrammDirectFtt= (Sxx / inactivityFft) - 1
+        if SxxReturn.shape[1] == 0:
+            SxxReturn = np.zeros((data.shape[0], spectrogrammDirectFtt.shape[0], spectrogrammDirectFtt.shape[1]))
+            fReturn = f
+            tReturn = t
+        SxxReturn[chn] = spectrogrammDirectFtt
 
         if directFFT.shape[1] == 0:
             directFFT = np.empty((data.shape[0], spectrogrammDirectFtt.shape[1]))
@@ -274,11 +275,11 @@ def directFFTFilter(data, lowerFreqThreshold, upperFreqThreshold, fftsPerSecond,
 
         
 
-    info = data.infoCopy()
-    info[1]['values'] = t
+    infoIn = data.infoCopy()
+    infoIn[1]['values'] = t
 
     if clip:
         directFFT = np.clip(directFFT, 0, None)
 
-    SxxMeta = MetaArray(SxxReturn, info=[{'name': 'Channel'}, {'name': 'Frequency', 'values': fReturn}, {'name': 'Time', 'values': tReturn}])
-    return MetaArray(directFFT, info=info), SxxMeta
+    SxxMeta = MetaArray(SxxReturn, info=[infoIn[0], {'name': 'Frequency', 'values': fReturn}, {'name': 'Time', 'values': tReturn}])
+    return MetaArray(directFFT, info=infoIn), SxxMeta
