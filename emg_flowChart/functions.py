@@ -306,3 +306,46 @@ def directFFTFilter(data, lowerFreqThreshold, upperFreqThreshold, fftsPerSecond,
 
     SxxMeta = MetaArray(SxxReturn, info=[infoIn[0], {'name': 'Frequency', 'values': fReturn}, {'name': 'Time', 'values': tReturn}])
     return MetaArray(directFFT, info=infoIn), SxxMeta
+
+def statisticTracker(data, statistic, timeResolution, memoryLength, samplesPerCycle, fs = None):
+    if fs is None:
+        try:
+            tvals = data.xvals('Time')
+            fs =  (len(tvals)-1) / (tvals[-1]-tvals[0])
+        except:
+            fs = 1.0
+
+    statisticFunctions = {'mean': np.mean, 'std': np.std, 'min': np.min, 'max': np.max}
+    statistic = statisticFunctions[statistic]
+    resetValue = -np.inf if statistic == np.max else np.inf
+
+    dataIn = data.asarray()
+    binDurationC = int((timeResolution * fs) // samplesPerCycle) # bin duration in cycles
+    nBins = int(memoryLength // timeResolution) # number of bins
+
+    bins = np.full((dataIn.shape[0], nBins), resetValue) # bins for each channel
+    sortedBins = np.zeros(nBins) # bins for each channel
+
+    output = np.zeros((dataIn.shape[0], dataIn.shape[1] // samplesPerCycle)) # output array
+
+    for chn in range(dataIn.shape[0]):
+        for cycleCount in range(dataIn.shape[1] // samplesPerCycle):
+            # update elements in current bin
+            cycleData = dataIn[chn, cycleCount * samplesPerCycle : (cycleCount + 1) * samplesPerCycle]
+            bins[chn, 0] = statistic(np.append(cycleData,bins[chn, 0]))
+
+            # update elements in previous bins
+            if cycleCount % binDurationC == 0:
+                for binIndex in range(nBins-1, 0, -1):
+                    bins[chn, binIndex] = bins[chn, binIndex - 1]
+                bins[chn, 0] = resetValue
+
+            # Fill output array
+            sortedBins = np.sort(bins[chn])
+            output[chn, cycleCount] = statistic(sortedBins[2:-2])
+
+    infoIn = data.infoCopy()
+    t = np.linspace(data.xvals('Time')[0], data.xvals('Time')[-1], dataIn.shape[1] // samplesPerCycle)
+    infoIn[1]['values'] = t
+
+    return MetaArray(output, info=infoIn)

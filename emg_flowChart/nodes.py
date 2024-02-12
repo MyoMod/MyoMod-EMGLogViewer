@@ -16,7 +16,7 @@ class NotchFilterNode(CtrlNode):
     def process(self, In, display=True):
         """apply notch filter to data"""
 
-        if display and In is not None:
+        if In is not None:
             s = self.stateGroup.state()
             cutoff = s['cutoff']
             fs = None
@@ -37,7 +37,7 @@ class ButterBandpassFilterNode(CtrlNode):
     def process(self, In, display=True):
         """apply butterworth bandpass filter to data"""
 
-        if display and In is not None:
+        if In is not None:
             s = self.stateGroup.state()
             lowcut = s['lowcut']
             highcut = s['highcut']
@@ -73,7 +73,7 @@ class DirectFFTFilterNode(CtrlNode):
     def process(self, In, display=True):
         """apply butterworth bandpass filter to data"""
 
-        if display and In is not None:
+        if In is not None:
             s = self.stateGroup.state()
             lowerFreqThreshold = s['f lower']
             upperFreqThreshold = s['f upper']
@@ -123,7 +123,7 @@ class DirectFFTFilterCMSISNode(CtrlNode):
     def process(self, In, display=True):
         """apply butterworth bandpass filter to data"""
 
-        if display and In is not None:
+        if In is not None:
             s = self.stateGroup.state()
             fRange = [s['f lower'], s['f upper']]
             normalizingTime = [s['normStart'], s['normEnd']]
@@ -154,7 +154,7 @@ class MovingAvgConvFilterNode(CtrlNode):
     def process(self, In, display=True):
         """apply moving average convolution filter to data"""
 
-        if display and In is not None:
+        if In is not None:
             s = self.stateGroup.state()
             time = s['time']
             fs = None
@@ -173,7 +173,7 @@ class RootMeanSquareNode(CtrlNode):
     def process(self, In, display=True):
         """calculate root mean square of data"""
 
-        if display and In is not None:
+        if In is not None:
             s = self.stateGroup.state()
             time = s['time']
             fs = None
@@ -189,12 +189,54 @@ class RootMeanSquareCMSISNode(CtrlNode):
     def process(self, In, display=True):
         """calculate root mean square of data"""
 
-        if display and In is not None:
+        if In is not None:
             s = self.stateGroup.state()
             time = s['time']
             fs = None
             return {'Out':functions.rootMeanSquareCMSIS(In, time, fs)}
     
+class MaxTrackerNode(CtrlNode):
+    """Node for tracking maximum value of data"""
+    nodeName = "MaxTracker"
+    uiTemplate = [
+        ('memoryLength', 'spin', {'value': 15, 'step': 0.1, 'dec': True, 'bounds': [0.0, 1000.0], 'suffix': 's', 'siPrefix': True}),
+        ('timeResolution', 'spin', {'value': 1, 'step': 0.1, 'dec': True, 'bounds': [0.0, 1000.0], 'suffix': 's', 'siPrefix': True}),
+        ('samplesPerCycle', 'intSpin', {'value': 15, 'min': 1, 'max': 100}),
+    ]
+    
+    def process(self, In, display=True):
+        """track maximum value of data"""
+
+        if In is not None:
+            s = self.stateGroup.state()
+            statistic = 'max'
+            timeResolution = s['timeResolution']
+            memoryLength = s['memoryLength']
+            samplesPerCycle = s['samplesPerCycle']
+
+            return {'Out':functions.statisticTracker(In, statistic, timeResolution, memoryLength, samplesPerCycle, fs = None)}
+        
+class MinTrackerNode(CtrlNode):
+    """Node for tracking minimum value of data"""
+    nodeName = "MinTracker"
+    uiTemplate = [
+        ('memoryLength', 'spin', {'value': 15, 'step': 0.1, 'dec': True, 'bounds': [0.0, 1000.0], 'suffix': 's', 'siPrefix': True}),
+        ('timeResolution', 'spin', {'value': 1, 'step': 0.1, 'dec': True, 'bounds': [0.0, 1000.0], 'suffix': 's', 'siPrefix': True}),
+        ('samplesPerCycle', 'intSpin', {'value': 15, 'min': 1, 'max': 100}),
+    ]
+    
+    def process(self, In, display=True):
+        """track minimum value of data"""
+
+        if In is not None:
+            s = self.stateGroup.state()
+            statistic = 'min'
+            timeResolution = s['timeResolution']
+            memoryLength = s['memoryLength']
+            samplesPerCycle = s['samplesPerCycle']
+
+            return {'Out':functions.statisticTracker(In, statistic, timeResolution, memoryLength, samplesPerCycle, fs = None)}
+
 class HysteresisNode(CtrlNode):
     """Node for applying hysteresis to data"""
     nodeName = "Hysteresis"
@@ -215,7 +257,7 @@ class HysteresisNode(CtrlNode):
     def process(self, In, display=True):
         """apply hysteresis to data"""
 
-        if display and In is not None:
+        if In is not None:
             s = self.stateGroup.state()
             upperThreshold = s['upperThreshold']
             lowerThreshold = s['lowerThreshold']
@@ -229,7 +271,7 @@ class SquareNode(CtrlNode):
     def process(self, In, display=True):
         """square data"""
 
-        if display and In is not None:
+        if In is not None:
             return {'Out':functions.square(In)}
         
 class SquareRootNode(CtrlNode):
@@ -239,5 +281,5 @@ class SquareRootNode(CtrlNode):
     def process(self, In, display=True):
         """calculate square root of data"""
 
-        if display and In is not None:
+        if In is not None:
             return {'Out':functions.squareRoot(In)}
