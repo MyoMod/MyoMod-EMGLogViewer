@@ -1,6 +1,7 @@
 import pyqtgraph as pg
 import numpy as np
-from pyqtgraph.flowchart.library.common import CtrlNode
+from pyqtgraph.flowchart.library.common import CtrlNode, Node
+from pyqtgraph.Qt import QtCore, QtGui, QtWidgets
 
 from . import functions
 
@@ -283,3 +284,105 @@ class SquareRootNode(CtrlNode):
 
         if In is not None:
             return {'Out':functions.squareRoot(In)}
+        
+class ChannelJoinNode(CtrlNode):
+    """Concatenates record arrays and/or adds new columns"""
+    nodeName = 'ChannelJoin'
+    
+    def __init__(self, name):
+        CtrlNode.__init__(self, name, terminals = {
+            'output': {'io': 'out'},
+        })
+        
+        #self.items = []
+        
+        self.ui = QtWidgets.QWidget()
+        self.layout = QtWidgets.QGridLayout()
+        self.ui.setLayout(self.layout)
+        
+        self.tree = pg.TreeWidget()
+        self.addInBtn = QtWidgets.QPushButton('+ Input')
+        self.remInBtn = QtWidgets.QPushButton('- Input')
+        
+        self.layout.addWidget(self.tree, 0, 0, 1, 2)
+        self.layout.addWidget(self.addInBtn, 1, 0)
+        self.layout.addWidget(self.remInBtn, 1, 1)
+
+        self.addInBtn.clicked.connect(self.addInput)
+        self.remInBtn.clicked.connect(self.remInput)
+        self.tree.sigItemMoved.connect(self.update)
+        
+    def ctrlWidget(self):
+        return self.ui
+        
+    def addInput(self):
+        #print "ColumnJoinNode.addInput called."
+        term = Node.addInput(self, 'input', renamable=True, removable=True, multiable=True)
+        #print "Node.addInput returned. term:", term
+        item = QtWidgets.QTreeWidgetItem([term.name()])
+        item.term = term
+        term.joinItem = item
+        #self.items.append((term, item))
+        self.tree.addTopLevelItem(item)
+
+    def remInput(self):
+        sel = self.tree.currentItem()
+        term = sel.term
+        term.joinItem = None
+        sel.term = None
+        self.tree.removeTopLevelItem(sel)
+        self.removeTerminal(term)
+        self.update()
+
+    def process(self, display=True, **args):
+        order = self.order()
+        vals = []
+        for name in order:
+            if name not in args:
+                continue
+            val = args[name]
+            if val is not None:
+                vals.append([val, name])
+
+        if len(vals) == 0:
+            return None
+        return {'output': functions.concatenateChannels(vals)}
+
+    def order(self):
+        return [str(self.tree.topLevelItem(i).text(0)) for i in range(self.tree.topLevelItemCount())]
+
+    def saveState(self):
+        state = Node.saveState(self)
+        state['order'] = self.order()
+        return state
+        
+    def restoreState(self, state):
+        Node.restoreState(self, state)
+        inputs = self.inputs()
+
+        ## Node.restoreState should have created all of the terminals we need
+        ## However: to maintain support for some older flowchart files, we need
+        ## to manually add any terminals that were not taken care of.
+        for name in [n for n in state['order'] if n not in inputs]:
+            Node.addInput(self, name, renamable=True, removable=True, multiable=True)
+        inputs = self.inputs()
+
+        order = [name for name in state['order'] if name in inputs]
+        for name in inputs:
+            if name not in order:
+                order.append(name)
+        
+        self.tree.clear()
+        for name in order:
+            term = self[name]
+            item = QtWidgets.QTreeWidgetItem([name])
+            item.term = term
+            term.joinItem = item
+            #self.items.append((term, item))
+            self.tree.addTopLevelItem(item)
+
+    def terminalRenamed(self, term, oldName):
+        Node.terminalRenamed(self, term, oldName)
+        item = term.joinItem
+        item.setText(0, term.name())
+        self.update()

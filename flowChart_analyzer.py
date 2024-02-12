@@ -232,6 +232,7 @@ class EMG_FlowChart():
         library.addNodeType(EMG_Nodes.SquareRootNode, [('EMG_Filter',)])
         library.addNodeType(EMG_Nodes.MinTrackerNode, [('EMG_Filter',)])
         library.addNodeType(EMG_Nodes.MaxTrackerNode, [('EMG_Filter',)])
+        library.addNodeType(EMG_Nodes.ChannelJoinNode, [('EMG_Filter',)])
 
 
         self.fc.setLibrary(library)

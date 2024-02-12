@@ -348,3 +348,29 @@ def statisticTracker(data, statistic, timeResolution, memoryLength, samplesPerCy
     infoIn = data.infoCopy()
 
     return MetaArray(output, info=infoIn)
+
+def concatenateChannels(data):
+    t = data[0][0].xvals('Time')
+    for inputTuple in data:
+        if not np.array_equal(inputTuple[0].xvals('Time'), t):
+            raise ValueError("Inputs must have the same time axis.")
+        
+    # join channel info
+    channelInfo = data[0][0].infoCopy()
+    if len(data) > 1:
+        for inputTuple in data[1:]:
+            cols = inputTuple[0].infoCopy()[0]['cols']
+            for col in cols:
+                col['name'] = "{}: {}".format(inputTuple[1], col['name'])
+            channelInfo[0]['cols'] += cols
+            channelInfo[0]['colors'] += inputTuple[0].infoCopy()[0]['colors']
+
+    # join data
+    d1 = np.vstack([inputTuple[0].asarray() for inputTuple in data])
+
+    return MetaArray(d1, info=channelInfo)
+
+def minMaxScale(data, min, max):
+    d1 = data.asarray().copy()
+    d1 = (d1 - np.min(d1)) / (np.max(d1) - np.min(d1)) * (max - min) + min
+    return MetaArray(d1, info=data.infoCopy())
