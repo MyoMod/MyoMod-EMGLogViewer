@@ -52,6 +52,8 @@ class DirectFFTFilterNode(CtrlNode):
     uiTemplate = [
         ('f lower', 'spin', {'value': 50., 'step': 0.5, 'dec': False, 'bounds': [0.0, 1000.0], 'suffix': 'Hz', 'siPrefix': True}),
         ('f upper', 'spin', {'value': 300., 'step': 0.5, 'dec': False, 'bounds': [0.0, 1000.0], 'suffix': 'Hz', 'siPrefix': True}),
+        ('normStart', 'spin', {'value': 0.5, 'step': 0.1, 'dec': True, 'bounds': [0.0, 1000.0], 'suffix': 's', 'siPrefix': True}),
+        ('normEnd', 'spin', {'value': 2.5, 'step': 0.1, 'dec': True, 'bounds': [0.0, 1000.0], 'suffix': 's', 'siPrefix': True}),
         ('fftWindow', 'combo', {'values': ['dpss', 'hann', 'hamming', 'blackman', 'bartlett'], 'value': 'dpss'}),
         ('fftWindowParam', 'spin', {'value': 1.8, 'step': 0.1, 'dec': True, 'bounds': [0.0, 1000.0]}),
         ('fftSize', 'intSpin', {'value': 512, 'min': 1, 'max': 2048}),
@@ -84,7 +86,9 @@ class DirectFFTFilterNode(CtrlNode):
             fftSize = s['fftSize']
             fs = None
             clip = s['clipToZero']
+            normPeriod = [s['normStart'], s['normEnd']]
             filteredData, SxxMeta = functions.directFFTFilter(In, lowerFreqThreshold, upperFreqThreshold, fftsPerSecond, 
+                                                              normPeriod=normPeriod,
                                                               samplesPerFFT=samplesPerFFT, 
                                                               fftWindow=fftWindow, 
                                                               fftSize=fftSize, 
@@ -121,19 +125,17 @@ class DirectFFTFilterCMSISNode(CtrlNode):
 
         if display and In is not None:
             s = self.stateGroup.state()
-            lowerFreqThreshold = s['f lower']
-            upperFreqThreshold = s['f upper']
+            fRange = [s['f lower'], s['f upper']]
             normalizingTime = [s['normStart'], s['normEnd']]
-            normalizingAlpha = 0.98
             samplesPerCycle = s['samplesPerCycle']
             samplesPerFFT = s['samplesPerFFT']
             fftWindow = (s['fftWindow'], s['fftWindowParam'])
             fftSize = s['fftSize']
             fs = None
             clip = s['clipToZero']
-            filteredData, SxxMeta = functions.directFFTFilterCMSIS(In, lowerFreqThreshold, upperFreqThreshold, 
+            filteredData, SxxMeta = functions.directFFTFilterCMSIS(In, 
+                                                         fRange=fRange, 
                                                          normalizingTime = normalizingTime, 
-                                                         normalizingAlpha = normalizingAlpha,
                                                          samplesPerCycle = samplesPerCycle, 
                                                          samplesPerFFT=samplesPerFFT, 
                                                          fftWindow=fftWindow, 

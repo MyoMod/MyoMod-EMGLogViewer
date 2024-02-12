@@ -140,7 +140,7 @@ def hysteresis(data, upperThreshold, lowerThreshold):
                 d1[channel,i] = d1[channel,i - 1]
     return MetaArray(d1, info=data.infoCopy())
 
-def directFFTFilterCMSIS(data, lowerFreqThreshold, upperFreqThreshold, normalizingTime = [0.5,2.5], normalizingAlpha = 0.98, samplesPerCycle = 15, samplesPerFFT = 256, fftWindow = ('dpss', 1.8), fftSize = 256, fs = None, clip = True):
+def directFFTFilterCMSIS(data, fRange, normalizingTime, samplesPerCycle , samplesPerFFT, fftWindow, fftSize, fs = None, clip = True):
     if fs is None:
         try:
             tvals = data.xvals('Time')
@@ -256,7 +256,7 @@ def directFFTFilter(data, lowerFreqThreshold, upperFreqThreshold, fftsPerSecond,
         Sxx = Sxx[freqSlice, :][0]
 
         # Calculate avg FFT for inactivity
-        t_avg = np.where((t > 0.5) & (t < 2.5))
+        t_avg = np.where((t > normPeriod[0]) & (t < normPeriod[1]))
         Sxx_avg = Sxx[:, t_avg][:,0,:]
         inactivityFft = np.mean(Sxx_avg, axis=1, keepdims=True)
         
