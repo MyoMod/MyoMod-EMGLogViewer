@@ -150,67 +150,88 @@ def directFFTFilterCMSIS(data, fRange, normalizingTime, samplesPerCycle , sample
 
     assert samplesPerFFT == fftSize, "samplesPerFFT and fftSize must be equal for CMSIS-DSP"
 
-    directFFT = np.empty((data.shape[0], data.shape[1] // samplesPerCycle))
-    inactivityFft = np.ones((data.shape[0], fftSize//2))
-    firstCycle = np.ones(data.shape[0])
+    # Misc variables
+    fftInst = dsp.arm_rfft_fast_instance_f32()
+    status = dsp.arm_rfft_fast_init_f32(fftInst, fftSize)
+    nChannels = data.shape[0]
 
+    # subFft Slice calculation
+    fBinSize = fs/fftSize
+    subFftRange = [int(i // fBinSize) for i in fRange]
+    subFftSize = subFftRange[1] - subFftRange[0]
+
+    # FFT buffers
+    directFFT = np.empty((nChannels, data.shape[1] // samplesPerCycle))
+    fft = np.zeros(fftSize, dtype=np.float32)
+    subFft = np.zeros(subFftSize, dtype=np.float32)
+
+    # Normalisation data
+    normAccumulator = np.zeros((nChannels, subFftSize), dtype=np.float64)
+    normTemp = np.zeros(subFftSize, np.float64)
+    normFft = np.ones((nChannels, subFftSize), np.float64)
+    normAccLength = np.zeros(nChannels, dtype=np.uint32)
+
+    # Memories
+    dataMemory = np.zeros((nChannels, fftSize), dtype=np.float32)
+    elementsInBuffer = 0
+
+    # Window
     if fftWindow[0] == 'hann':
         window = dsp.arm_hanning_f32(samplesPerFFT)
     else:
         window = dsp.arm_hamming_f32(samplesPerFFT)
     windowedData = np.zeros(samplesPerFFT, dtype=np.float32)
 
-    dataBuffer = np.zeros((data.shape[0], fftSize), dtype=np.float32)
-    fft = np.zeros(fftSize, dtype=np.float32)
-
-    Sxx = np.zeros((data.shape[0], fftSize//2, data.shape[1] // samplesPerCycle), dtype=np.float32)
-    f = np.linspace(0, fs/2, fftSize//2)
-    elementsInBuffer = 0
+    # Output variables
+    Sxx = np.zeros((nChannels, subFftSize, data.shape[1] // samplesPerCycle), dtype=np.float32)
+    f = np.linspace(fRange[0], fRange[1], subFftSize)
 
     # Apply FFT-Filter to each channel
-    for chn in range(data.shape[0]):
+    for chn in range(nChannels):
         for i in range(data.shape[1] // samplesPerCycle):
             # Shift elements of the buffer
             for j in range(samplesPerCycle, samplesPerFFT):
-                dataBuffer[chn, j - samplesPerCycle] = dataBuffer[chn, j]
+                dataMemory[chn, j - samplesPerCycle] = dataMemory[chn, j]
 
             # Fill buffer with data
-            #dataBuffer[chn, [samplesPerFFT - samplesPerCycle, samplesPerFFT]] = data[chn, [i * samplesPerCycle, (i+1) * samplesPerCycle]]
             dataBufferOffset = samplesPerFFT - samplesPerCycle
             dataOffset = i * samplesPerCycle
             for j in range(samplesPerCycle):
-                dataBuffer[chn, j + dataBufferOffset] = data[chn, j + dataOffset]
+                dataMemory[chn, j + dataBufferOffset] = data[chn, j + dataOffset]
+            
+            if chn == nChannels - 1:
+                elementsInBuffer += samplesPerCycle 
+            
+            if elementsInBuffer < samplesPerFFT:
+                continue
 
             # Apply windowing
-            windowedData = dsp.arm_mult_f32(dataBuffer[chn], window)
+            windowedData = dsp.arm_mult_f32(dataMemory[chn], window)
 
             # Calculate FFT
-            fftInst = dsp.arm_rfft_fast_instance_f32()
-            status = dsp.arm_rfft_fast_init_f32(fftInst, fftSize)
             fft = dsp.arm_rfft_fast_f32(fftInst, windowedData, 0)
-            fft = dsp.arm_cmplx_mag_f32(fft)
+            subCFtt = fft[subFftRange[0]*2 : subFftRange[1]*2]
+            subFft = dsp.arm_cmplx_mag_f32(subCFtt)
 
             # Calculate avg FFT for inactivity
             t_now = data.xvals('Time')[i * samplesPerCycle]
             if normalizingTime[0] < t_now < normalizingTime[1]:
-                if firstCycle[chn] == 1:
-                    firstCycle[chn] = 0
-                    inactivityFft[chn] = fft
-                else:
-                    inactivityFft[chn] = dsp.arm_scale_f32(inactivityFft[chn], normalizingAlpha) + dsp.arm_scale_f32(fft, 1-normalizingAlpha)
-                dsp.arm_clip_f32(inactivityFft[chn], 0.1, 100000)
+                #normTemp = dsp.arm_float_to_f64(subFft)
+                normTemp = subFft.astype(np.float64)
+                normAccumulator[chn] = dsp.arm_add_f64(normTemp, normAccumulator[chn])
+                normAccLength[chn] += 1
+
+                normTemp = normAccumulator[chn] / normAccLength[chn]
+                #normFft[chn] = dsp.arm_f64_to_float(normTemp)
+                normFft[chn] = normTemp.astype(np.float32)
+
+                normFft[chn] = dsp.arm_clip_f32(normFft[chn], 1e-15, 100000)
 
             # Use inactivity FFT to filter the actual FFT and normalize it to 0 for inactivity
-            filteredFft = (fft / inactivityFft[chn]) - 1
-            filteredFft = fft
+            subFft = (subFft / normFft[chn]) - 1
 
-            # bandpass the fft
-            fSlice = (f > lowerFreqThreshold) & (f < upperFreqThreshold)
-            filteredFft = filteredFft * fSlice
-
-            Sxx[chn, :, i] = filteredFft
-            directFFT[chn][i] = dsp.arm_accumulate_f32(filteredFft)
-            directFFT[chn][i] = directFFT[chn][i] / (np.sum(fSlice) * 2)
+            Sxx[chn, :, i] = subFft
+            directFFT[chn][i] = dsp.arm_mean_f32(subFft)
             
     infoIn = data.infoCopy()
     t = np.linspace(data.xvals('Time')[0], data.xvals('Time')[-1], data.shape[1] // samplesPerCycle)
@@ -224,7 +245,7 @@ def directFFTFilterCMSIS(data, fRange, normalizingTime, samplesPerCycle , sample
 
     return MetaArray(directFFT, info=infoIn), SxxMeta
 
-def directFFTFilter(data, lowerFreqThreshold, upperFreqThreshold, fftsPerSecond, samplesPerFFT = 256, fftWindow = ('dpss', 1.8), fftSize = 512, fs = None, clip = True):
+def directFFTFilter(data, lowerFreqThreshold, upperFreqThreshold, fftsPerSecond, normPeriod, samplesPerFFT, fftWindow, fftSize, fs = None, clip = True):
 
     if fs is None:
         try:
@@ -233,7 +254,7 @@ def directFFTFilter(data, lowerFreqThreshold, upperFreqThreshold, fftsPerSecond,
         except:
             fs = 1.0
 
-    newSamplesPerFFT = int(fs / fftsPerSecond)
+    newSamplesPerFFT = fs // fftsPerSecond
     noverlap = samplesPerFFT - newSamplesPerFFT
 
     directFFT = np.empty((data.shape[0], 0))
@@ -242,12 +263,14 @@ def directFFTFilter(data, lowerFreqThreshold, upperFreqThreshold, fftsPerSecond,
     fReturn = np.zeros((0))
     tReturn = np.zeros((0))
 
+
     # Apply FFT-Filter to each channel
     for chn in range(data.shape[0]):
 
         #hamming, bohmann, barthann window for better frequency resolution
         f, t, Sxx = signal.spectrogram(data[chn,:], fs, nfft=fftSize, nperseg=samplesPerFFT, \
-                                    noverlap=noverlap, scaling='density', window=fftWindow)
+                                    noverlap=noverlap, scaling='density', window=fftWindow, mode="magnitude",
+                                    detrend=False)
         
 
 
