@@ -1,4 +1,5 @@
 import cmsisdsp as dsp
+from cmsisdsp import fixedpoint
 import numpy as np
 import scipy as sp
 import scipy.signal as signal
@@ -151,8 +152,8 @@ def directFFTFilterCMSIS(data, fRange, normalizingTime, samplesPerCycle , sample
     assert samplesPerFFT == fftSize, "samplesPerFFT and fftSize must be equal for CMSIS-DSP"
 
     # Misc variables
-    fftInst = dsp.arm_rfft_fast_instance_f32()
-    status = dsp.arm_rfft_fast_init_f32(fftInst, fftSize)
+    fftInst = dsp.arm_rfft_instance_q31()
+    status = dsp.arm_rfft_init_q31(fftInst, fftSize, 0, 1)
     nChannels = data.shape[0]
 
     # subFft Slice calculation
@@ -162,14 +163,14 @@ def directFFTFilterCMSIS(data, fRange, normalizingTime, samplesPerCycle , sample
 
     # FFT buffers
     directFFT = np.empty((nChannels, data.shape[1] // samplesPerCycle))
-    fft = np.zeros(fftSize, dtype=np.float32)
-    subFft = np.zeros(subFftSize, dtype=np.float32)
+    fft = np.zeros(fftSize, dtype=np.int32)
+    subFft = np.zeros(subFftSize, dtype=np.int32)
 
     # Normalisation data
-    normAccumulator = np.zeros((nChannels, subFftSize), dtype=np.float64)
-    normTemp = np.zeros(subFftSize, np.float64)
-    normFft = np.ones((nChannels, subFftSize), np.float64)
-    normAccLength = np.zeros(nChannels, dtype=np.uint32)
+    normAccumulator = np.zeros((nChannels, subFftSize), dtype=np.int64)
+    normTemp = np.zeros(subFftSize, np.int64)
+    normFft = np.ones((nChannels, subFftSize), np.int32)
+    normAccLength = np.zeros(nChannels, dtype=np.int64)
 
     # Memories
     dataMemory = np.zeros((nChannels, fftSize), dtype=np.float32)
@@ -177,10 +178,10 @@ def directFFTFilterCMSIS(data, fRange, normalizingTime, samplesPerCycle , sample
 
     # Window
     if fftWindow[0] == 'hann':
-        window = dsp.arm_hanning_f32(samplesPerFFT)
+        window = fixedpoint.toQ31(dsp.arm_hanning_f32(samplesPerFFT))
     else:
-        window = dsp.arm_hamming_f32(samplesPerFFT)
-    windowedData = np.zeros(samplesPerFFT, dtype=np.float32)
+        window = fixedpoint.toQ31(dsp.arm_hamming_f32(samplesPerFFT))
+    windowedData = np.zeros(samplesPerFFT, dtype=np.int32)
 
     # Output variables
     Sxx = np.zeros((nChannels, subFftSize, data.shape[1] // samplesPerCycle), dtype=np.float32)
@@ -206,32 +207,32 @@ def directFFTFilterCMSIS(data, fRange, normalizingTime, samplesPerCycle , sample
                 continue
 
             # Apply windowing
-            windowedData = dsp.arm_mult_f32(dataMemory[chn], window)
+            windowedData = dsp.arm_mult_q31(fixedpoint.toQ31(dataMemory[chn]), window)
 
             # Calculate FFT
-            fft = dsp.arm_rfft_fast_f32(fftInst, windowedData, 0)
+            fft = dsp.arm_rfft_q31(fftInst, windowedData)
             subCFtt = fft[subFftRange[0]*2 : subFftRange[1]*2]
-            subFft = dsp.arm_cmplx_mag_f32(subCFtt)
+            subFft = dsp.arm_cmplx_mag_q31(subCFtt)
 
             # Calculate avg FFT for inactivity
             t_now = data.xvals('Time')[i * samplesPerCycle]
             if normalizingTime[0] < t_now < normalizingTime[1]:
                 #normTemp = dsp.arm_float_to_f64(subFft)
-                normTemp = subFft.astype(np.float64)
-                normAccumulator[chn] = dsp.arm_add_f64(normTemp, normAccumulator[chn])
+                normTemp = dsp.arm_shift_q31(subFft.astype(np.int64), 32)
+                normAccumulator[chn] = dsp.arm_add_q31(normTemp, normAccumulator[chn])
                 normAccLength[chn] += 1
 
                 normTemp = normAccumulator[chn] / normAccLength[chn]
                 #normFft[chn] = dsp.arm_f64_to_float(normTemp)
-                normFft[chn] = normTemp.astype(np.float32)
+                normFft[chn] = dsp.arm_shift_q31(normTemp, -32).astype(np.int32)
 
-                normFft[chn] = dsp.arm_clip_f32(normFft[chn], 1e-15, 100000)
+                normFft[chn] = dsp.arm_clip_q31(normFft[chn], fixedpoint.toQ31(1e-5), 100000)
 
             # Use inactivity FFT to filter the actual FFT and normalize it to 0 for inactivity
             subFft = (subFft / normFft[chn]) - 1
 
-            Sxx[chn, :, i] = subFft
-            directFFT[chn][i] = dsp.arm_mean_f32(subFft)
+            Sxx[chn, :, i] = fixedpoint.Q31toF32(subFft)
+            directFFT[chn][i] = fixedpoint.Q31toF32(dsp.arm_mean_q31(subFft))
             
     infoIn = data.infoCopy()
     t = np.linspace(data.xvals('Time')[0], data.xvals('Time')[-1], data.shape[1] // samplesPerCycle)
