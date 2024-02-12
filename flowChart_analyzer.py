@@ -358,7 +358,7 @@ class Spectrogram(CtrlNode):
     """Node that displays the spectogram of the selected channel in a ImageView widget"""
     nodeName = 'Spectrogram'
     uiTemplate = [
-        ('channel', 'combo', {'values': [str(i+1) for i in range(6)], 'value': '1'}),
+        ('channel', 'combo', {'values': ["Channel {}".format(i+1) for i in range(6)], 'value': 'Channel 1'}),
     ]
     
     
@@ -476,30 +476,40 @@ class Spectrogram(CtrlNode):
         if display and self.win is not None:
             # calculate the spectrogram
             s = self.stateGroup.state()
-            channel = int(s['channel']) - 1
+            channelName = s['channel']
 
             if timeSeries is None and Sxx is None:
                 self.img.setImage(np.zeros((1,1))) # give a blank array to clear the view
             else:
                 if timeSeries is not None:
-                    if channel >= timeSeries.shape[0]:
-                        print("Channel {} does not exist".format(channel))
-                        channel = 0
+                    try:
+                        channelIndex = timeSeries._info[0]['cols'].index(channelName)
+                    except ValueError:
+                        self.setTitle("Channel {} does not exist".format(channelName))
+                        return
 
-                    signalValues = timeSeries[channel,:]
+                    signalValues = timeSeries[channelIndex,:]
                     timeValues = timeSeries.axisValues('Time')
 
                     self.unit = timeSeries._info[0]['units']
-                    self.color = timeSeries._info[0]['colors'][channel]
+                    self.color = timeSeries._info[0]['colors'][channelIndex]
 
                     self.f, self.t, self.Sxx = signal.spectrogram(signalValues, fs=1/(timeValues[1]-timeValues[0]), nperseg=256, noverlap=256*0.75, nfft=512)
                 else:
+                    channelIndex = -1
+                    for i, channelInfo in enumerate(Sxx._info[0]['cols']):
+                        if channelInfo['name'] == channelName:
+                            channelIndex = i
+                    if channelIndex == -1:
+                        self.setTitle("Channel {} does not exist".format(channelName))
+                        return
+                    
                     self.f = Sxx._info[1]['values']
                     self.t = Sxx._info[2]['values']
-                    self.Sxx = Sxx[channel].asarray().copy()
+                    self.Sxx = Sxx[channelIndex].asarray().copy()
 
                     self.unit = Sxx._info[0]['units']
-                    self.color = Sxx._info[0]['colors'][channel]
+                    self.color = Sxx._info[0]['colors'][channelIndex]
 
                 self.img.setImage(self.Sxx)
 
