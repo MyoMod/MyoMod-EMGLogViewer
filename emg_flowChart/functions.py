@@ -224,11 +224,13 @@ def directFFTFilterCMSIS(data, fRange, normalizingTime, samplesPerCycle , sample
                 normTemp = normAccumulator[chn] / normAccLength[chn]
                 #normFft[chn] = dsp.arm_f64_to_float(normTemp)
                 normFft[chn] = normTemp.astype(np.float32)
-
                 normFft[chn] = dsp.arm_clip_f32(normFft[chn], 1e-15, 100000)
+                normFft[chn] = 1 / normFft[chn]
+
 
             # Use inactivity FFT to filter the actual FFT and normalize it to 0 for inactivity
-            subFft = (subFft / normFft[chn]) - 1
+            if t_now > normalizingTime[0]:
+                subFft = (subFft * normFft[chn]) - 1
 
             Sxx[chn, :, i] = subFft
             directFFT[chn][i] = dsp.arm_mean_f32(subFft)
