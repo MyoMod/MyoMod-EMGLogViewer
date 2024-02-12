@@ -324,9 +324,9 @@ def statisticTracker(data, statistic, timeResolution, memoryLength, samplesPerCy
     nBins = int(memoryLength // timeResolution) # number of bins
 
     bins = np.full((dataIn.shape[0], nBins), resetValue) # bins for each channel
-    sortedBins = np.zeros(nBins) # bins for each channel
+    sortedBins = np.zeros(nBins)
 
-    output = np.zeros((dataIn.shape[0], dataIn.shape[1] // samplesPerCycle)) # output array
+    output = np.zeros((dataIn.shape[0], dataIn.shape[1])) # output array
 
     for chn in range(dataIn.shape[0]):
         for cycleCount in range(dataIn.shape[1] // samplesPerCycle):
@@ -342,10 +342,9 @@ def statisticTracker(data, statistic, timeResolution, memoryLength, samplesPerCy
 
             # Fill output array
             sortedBins = np.sort(bins[chn])
-            output[chn, cycleCount] = statistic(sortedBins[2:-2])
+            cycleValue = statistic(sortedBins[2:-2])
+            output[chn, cycleCount * samplesPerCycle : (cycleCount + 1) * samplesPerCycle] = cycleValue
 
     infoIn = data.infoCopy()
-    t = np.linspace(data.xvals('Time')[0], data.xvals('Time')[-1], dataIn.shape[1] // samplesPerCycle)
-    infoIn[1]['values'] = t
 
     return MetaArray(output, info=infoIn)
