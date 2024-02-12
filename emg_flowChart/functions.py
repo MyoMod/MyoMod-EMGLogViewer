@@ -161,19 +161,19 @@ def directFFTFilterCMSIS(data, fRange, normalizingTime, samplesPerCycle , sample
     subFftSize = subFftRange[1] - subFftRange[0]
 
     # FFT buffers
-    directFFT = np.empty((nChannels, data.shape[1] // samplesPerCycle))
+    directFFT = np.zeros((nChannels, data.shape[1] // samplesPerCycle))
     fft = np.zeros(fftSize, dtype=np.float32)
     subFft = np.zeros(subFftSize, dtype=np.float32)
 
     # Normalisation data
     normAccumulator = np.zeros((nChannels, subFftSize), dtype=np.float64)
     normTemp = np.zeros(subFftSize, np.float64)
-    normFft = np.ones((nChannels, subFftSize), np.float64)
+    normFft = np.ones((nChannels, subFftSize), np.float32)
     normAccLength = np.zeros(nChannels, dtype=np.uint32)
 
     # Memories
     dataMemory = np.zeros((nChannels, fftSize), dtype=np.float32)
-    elementsInBuffer = 0
+    elementsInBuffer = np.zeros(nChannels, dtype=np.uint32)
 
     # Window
     if fftWindow[0] == 'hann':
@@ -199,10 +199,9 @@ def directFFTFilterCMSIS(data, fRange, normalizingTime, samplesPerCycle , sample
             for j in range(samplesPerCycle):
                 dataMemory[chn, j + dataBufferOffset] = data[chn, j + dataOffset]
             
-            if chn == nChannels - 1:
-                elementsInBuffer += samplesPerCycle 
+            elementsInBuffer[chn] += samplesPerCycle 
             
-            if elementsInBuffer < samplesPerFFT:
+            if elementsInBuffer[chn] < samplesPerFFT:
                 continue
 
             # Apply windowing
@@ -232,16 +231,14 @@ def directFFTFilterCMSIS(data, fRange, normalizingTime, samplesPerCycle , sample
             if t_now > normalizingTime[0]:
                 subFft = (subFft * normFft[chn]) - 1
 
-            Sxx[chn, :, i] = subFft
+            Sxx[chn][:, i] = subFft
             directFFT[chn][i] = dsp.arm_mean_f32(subFft)
+            if clip:
+                directFFT[chn][i] = max(0, directFFT[chn][i])
             
     infoIn = data.infoCopy()
     t = np.linspace(data.xvals('Time')[0], data.xvals('Time')[-1], data.shape[1] // samplesPerCycle)
     infoIn[1]['values'] = t
-
-    if clip:
-        directFFT = np.clip(directFFT, 0, None)
-
 
     SxxMeta = MetaArray(Sxx, info=[infoIn[0], {'name': 'Frequency', 'values': f}, {'name': 'Time', 'values': t}])
 
@@ -259,7 +256,7 @@ def directFFTFilter(data, lowerFreqThreshold, upperFreqThreshold, fftsPerSecond,
     newSamplesPerFFT = fs // fftsPerSecond
     noverlap = samplesPerFFT - newSamplesPerFFT
 
-    directFFT = np.empty((data.shape[0], 0))
+    directFFT = np.zeros((data.shape[0], 0))
 
     SxxReturn = np.zeros((data.shape[0], 0, 0))
     fReturn = np.zeros((0))
@@ -287,6 +284,7 @@ def directFFTFilter(data, lowerFreqThreshold, upperFreqThreshold, fftsPerSecond,
         
         # Use inactivity FFT to filter the actual FFT and normalize it to 0 for inactivity
         spectrogrammDirectFtt= (Sxx / inactivityFft) - 1
+
         if SxxReturn.shape[1] == 0:
             SxxReturn = np.zeros((data.shape[0], spectrogrammDirectFtt.shape[0], spectrogrammDirectFtt.shape[1]))
             fReturn = f
