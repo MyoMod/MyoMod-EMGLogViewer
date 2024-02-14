@@ -270,8 +270,6 @@ def directFFTFilter(data, lowerFreqThreshold, upperFreqThreshold, fftsPerSecond,
         f, t, Sxx = signal.spectrogram(data[chn,:], fs, nfft=fftSize, nperseg=samplesPerFFT, \
                                     noverlap=noverlap, scaling='density', window=fftWindow, mode="magnitude",
                                     detrend=False)
-        
-
 
         freqSlice = np.where((f > lowerFreqThreshold) & (f < upperFreqThreshold))
         f = f[freqSlice]
@@ -307,7 +305,7 @@ def directFFTFilter(data, lowerFreqThreshold, upperFreqThreshold, fftsPerSecond,
     SxxMeta = MetaArray(SxxReturn, info=[infoIn[0], {'name': 'Frequency', 'values': fReturn}, {'name': 'Time', 'values': tReturn}])
     return MetaArray(directFFT, info=infoIn), SxxMeta
 
-def statisticTracker(data, statistic, timeResolution, memoryLength, samplesPerCycle, fs = None):
+def statisticTracker(data, statistic, timeResolution, memoryLength, samplesPerCycle, startValue = None, fs = None):
     if fs is None:
         try:
             tvals = data.xvals('Time')
@@ -317,13 +315,13 @@ def statisticTracker(data, statistic, timeResolution, memoryLength, samplesPerCy
 
     statisticFunctions = {'mean': np.mean, 'std': np.std, 'min': np.min, 'max': np.max}
     statistic = statisticFunctions[statistic]
-    resetValue = -np.inf if statistic == np.max else np.inf
+    resetValue = np.finfo(np.float32).min if statistic == np.max else np.finfo(np.float32).max 
 
     dataIn = data.asarray()
     binDurationC = int((timeResolution * fs) // samplesPerCycle) # bin duration in cycles
     nBins = int(memoryLength // timeResolution) # number of bins
 
-    bins = np.full((dataIn.shape[0], nBins), resetValue) # bins for each channel
+    bins = np.full((dataIn.shape[0], nBins), np.nan if startValue is None else startValue) # bins for each channel
     sortedBins = np.zeros(nBins)
 
     output = np.zeros((dataIn.shape[0], dataIn.shape[1])) # output array
@@ -342,7 +340,10 @@ def statisticTracker(data, statistic, timeResolution, memoryLength, samplesPerCy
 
             # Fill output array
             sortedBins = np.sort(bins[chn])
-            cycleValue = statistic(sortedBins[2:-2])
+            if len(sortedBins) > 5:
+                cycleValue = statistic(sortedBins[2:-3])
+            else:
+                cycleValue = sortedBins[int(len(sortedBins)/2)]
             output[chn, cycleCount * samplesPerCycle : (cycleCount + 1) * samplesPerCycle] = cycleValue
 
     infoIn = data.infoCopy()

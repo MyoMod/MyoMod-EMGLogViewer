@@ -203,6 +203,8 @@ class MaxTrackerNode(CtrlNode):
         ('memoryLength', 'spin', {'value': 15, 'step': 0.1, 'dec': True, 'bounds': [0.0, 1000.0], 'suffix': 's', 'siPrefix': True}),
         ('timeResolution', 'spin', {'value': 1, 'step': 0.1, 'dec': True, 'bounds': [0.0, 1000.0], 'suffix': 's', 'siPrefix': True}),
         ('samplesPerCycle', 'intSpin', {'value': 15, 'min': 1, 'max': 100}),
+        ('useStartValue', 'check', {'checked': True}),
+        ('startValue', 'spin', {'value': 2.0, 'step': 0.1, 'dec': True, 'bounds': [0.0, None]}),
     ]
     
     def process(self, In, display=True):
@@ -214,8 +216,9 @@ class MaxTrackerNode(CtrlNode):
             timeResolution = s['timeResolution']
             memoryLength = s['memoryLength']
             samplesPerCycle = s['samplesPerCycle']
+            startValue = s['startValue'] if s['useStartValue'] else None
 
-            return {'Out':functions.statisticTracker(In, statistic, timeResolution, memoryLength, samplesPerCycle, fs = None)}
+            return {'Out':functions.statisticTracker(In, statistic, timeResolution, memoryLength, samplesPerCycle, startValue=startValue, fs = None)}
         
 class MinTrackerNode(CtrlNode):
     """Node for tracking minimum value of data"""
@@ -224,6 +227,8 @@ class MinTrackerNode(CtrlNode):
         ('memoryLength', 'spin', {'value': 15, 'step': 0.1, 'dec': True, 'bounds': [0.0, 1000.0], 'suffix': 's', 'siPrefix': True}),
         ('timeResolution', 'spin', {'value': 1, 'step': 0.1, 'dec': True, 'bounds': [0.0, 1000.0], 'suffix': 's', 'siPrefix': True}),
         ('samplesPerCycle', 'intSpin', {'value': 15, 'min': 1, 'max': 100}),
+        ('useStartValue', 'check', {'checked': False}),
+        ('startValue', 'spin', {'value': 0.0, 'step': 0.1, 'dec': True, 'bounds': [0.0, None]}),
     ]
     
     def process(self, In, display=True):
@@ -235,8 +240,9 @@ class MinTrackerNode(CtrlNode):
             timeResolution = s['timeResolution']
             memoryLength = s['memoryLength']
             samplesPerCycle = s['samplesPerCycle']
+            startValue = s['startValue'] if s['useStartValue'] else None
 
-            return {'Out':functions.statisticTracker(In, statistic, timeResolution, memoryLength, samplesPerCycle, fs = None)}
+            return {'Out':functions.statisticTracker(In, statistic, timeResolution, memoryLength, samplesPerCycle, startValue=startValue, fs = None)}
 
 class HysteresisNode(CtrlNode):
     """Node for applying hysteresis to data"""
