@@ -371,7 +371,12 @@ def concatenateChannels(data):
 
     return MetaArray(d1, info=channelInfo)
 
-def minMaxScale(data, min, max):
+def minMaxScale(data, inMin, inMax, outMin, outMax):
     d1 = data.asarray().copy()
-    d1 = (d1 - np.min(d1)) / (np.max(d1) - np.min(d1)) * (max - min) + min
+
+    inMin = np.nan_to_num(inMin, nan=np.finfo(d1.dtype).max, copy=False)
+    inMax = np.nan_to_num(inMax, nan=np.finfo(d1.dtype).min, copy=False)
+    d1 = ((d1 - inMin) / (inMax - inMin)) * (outMax - outMin) + outMin
+            
+    np.clip(d1, outMin, outMax, out=d1)
     return MetaArray(d1, info=data.infoCopy())

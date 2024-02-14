@@ -392,3 +392,29 @@ class ChannelJoinNode(CtrlNode):
         item = term.joinItem
         item.setText(0, term.name())
         self.update()
+
+class minMaxScaleNode(CtrlNode):
+    """Node for scaling data to min-max range"""
+    nodeName = "MinMaxScale"
+    uiTemplate = [
+        ('outMin', 'spin', {'value': 0.0, 'step': 0.1, 'dec': True, 'bounds': [0.0, None]}),
+        ('outMax', 'spin', {'value': 1.0, 'step': 0.1, 'dec': True, 'bounds': [0.0, None]}),
+    ]
+
+    def __init__(self, name):
+        terminals = {
+            'Out': {'io': 'out'},
+            'input': {'io': 'in'},
+            'max': {'io': 'in'},
+            'min': {'io': 'in'},
+        }
+        CtrlNode.__init__(self, name, terminals=terminals)
+    
+    def process(self, input, max, min, display=True):
+        """scale data to min-max range"""
+
+        if input is not None:
+            s = self.stateGroup.state()
+            minVal = s['outMin']
+            maxVal = s['outMax']
+            return {'Out':functions.minMaxScale(input, min, max, minVal, maxVal)}
