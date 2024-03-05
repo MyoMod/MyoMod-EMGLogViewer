@@ -486,9 +486,10 @@ class Spectrogram(CtrlNode):
                 self.img.setImage(np.zeros((1,1))) # give a blank array to clear the view
             else:
                 if timeSeries is not None:
-                    try:
-                        channelIndex = timeSeries._info[0]['cols'].index(channelName)
-                    except ValueError:
+                    for i, channelInfo in enumerate(timeSeries._info[0]['cols']):
+                        if channelInfo['name'] == channelName:
+                            channelIndex = i
+                    if channelIndex == -1:
                         self.setTitle("Channel {} does not exist".format(channelName))
                         return
 
