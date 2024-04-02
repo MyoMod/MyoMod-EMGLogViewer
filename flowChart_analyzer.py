@@ -195,7 +195,7 @@ class EMG_FlowChart():
             chnContainer.setStyleSheet("QWidget {background-color: #888;}")
         channelSelectionLayout = QtWidgets.QHBoxLayout(chnContainer)
         for i in range(6):
-            channelCheckbox = QtWidgets.QCheckBox("Channel {}".format(i+1), checked=True)
+            channelCheckbox = QtWidgets.QCheckBox("Channel {}".format(i+1), checked= (i == 0))
             color = colorGenerator(i, self.darkMode).name()
             channelCheckbox.setStyleSheet('QCheckBox {color: '+color+';}')
             channelCheckbox.stateChanged.connect(self.updateChannels)
