@@ -55,6 +55,9 @@ class DirectFFTFilterNode(CtrlNode):
         ('f upper', 'spin', {'value': 300., 'step': 0.5, 'dec': False, 'bounds': [0.0, 1000.0], 'suffix': 'Hz', 'siPrefix': True}),
         ('normStart', 'spin', {'value': 0.5, 'step': 0.1, 'dec': True, 'bounds': [0.0, 1000.0], 'suffix': 's', 'siPrefix': True}),
         ('normEnd', 'spin', {'value': 2.5, 'step': 0.1, 'dec': True, 'bounds': [0.0, 1000.0], 'suffix': 's', 'siPrefix': True}),
+        ('mvcStart', 'spin', {'value': 0.5, 'step': 0.1, 'dec': True, 'bounds': [0.0, 1000.0], 'suffix': 's', 'siPrefix': True}),
+        ('mvcEnd', 'spin', {'value': 2.5, 'step': 0.1, 'dec': True, 'bounds': [0.0, 1000.0], 'suffix': 's', 'siPrefix': True}),
+        ('mvcAlpha', 'spin', {'value': 0.01, 'step': 0.005, 'dec': True, 'bounds': [0.0, 1.0]}),
         ('fftWindow', 'combo', {'values': ['dpss', 'hann', 'hamming', 'blackman', 'bartlett'], 'value': 'dpss'}),
         ('fftWindowParam', 'spin', {'value': 1.8, 'step': 0.1, 'dec': True, 'bounds': [0.0, 1000.0]}),
         ('fftSize', 'intSpin', {'value': 512, 'min': 1, 'max': 2048}),
@@ -67,7 +70,8 @@ class DirectFFTFilterNode(CtrlNode):
         terminals={
             'In': {'io': 'in'},
             'Sxx': {'io': 'out'}, 
-            'Out': {'io': 'out'}   
+            'Out': {'io': 'out'},
+            'mvcFFT': {'io': 'out'} 
         }
         CtrlNode.__init__(self, name, terminals=terminals)
     
@@ -88,14 +92,18 @@ class DirectFFTFilterNode(CtrlNode):
             fs = None
             clip = s['clipToZero']
             normPeriod = [s['normStart'], s['normEnd']]
-            filteredData, SxxMeta = functions.directFFTFilter(In, lowerFreqThreshold, upperFreqThreshold, fftsPerSecond, 
+            mvcPeriod = [s['mvcStart'], s['mvcEnd']]
+            mvcAlpha = s['mvcAlpha']
+            filteredData, SxxMeta, mvcFFT = functions.directFFTFilter(In, lowerFreqThreshold, upperFreqThreshold, fftsPerSecond, 
                                                               normPeriod=normPeriod,
+                                                              mvcPeriod=mvcPeriod,
+                                                              mvcAlpha=mvcAlpha,
                                                               samplesPerFFT=samplesPerFFT, 
                                                               fftWindow=fftWindow, 
                                                               fftSize=fftSize, 
                                                               fs=fs, 
                                                               clip=clip)
-            return {'Out':filteredData, 'Sxx':SxxMeta}
+            return {'Out':filteredData, 'Sxx':SxxMeta, 'mvcFFT':mvcFFT}
     
 class DirectFFTFilterCMSISNode(CtrlNode):
     """Node for applying FFT filter to data using CMSIS-DSP"""
@@ -105,6 +113,9 @@ class DirectFFTFilterCMSISNode(CtrlNode):
         ('f upper', 'spin', {'value': 300., 'step': 0.5, 'dec': False, 'bounds': [0.0, 1000.0], 'suffix': 'Hz', 'siPrefix': True}),
         ('normStart', 'spin', {'value': 0.5, 'step': 0.1, 'dec': True, 'bounds': [0.0, 1000.0], 'suffix': 's', 'siPrefix': True}),
         ('normEnd', 'spin', {'value': 2.5, 'step': 0.1, 'dec': True, 'bounds': [0.0, 1000.0], 'suffix': 's', 'siPrefix': True}),
+        ('mvcStart', 'spin', {'value': 0.5, 'step': 0.1, 'dec': True, 'bounds': [0.0, 1000.0], 'suffix': 's', 'siPrefix': True}),
+        ('mvcEnd', 'spin', {'value': 2.5, 'step': 0.1, 'dec': True, 'bounds': [0.0, 1000.0], 'suffix': 's', 'siPrefix': True}),
+        ('mvcAlpha', 'spin', {'value': 0.01, 'step': 0.005, 'dec': True, 'bounds': [0.0, 1.0]}),
         ('samplesPerCycle', 'intSpin', {'value': 15, 'min': 1, 'max': 100}),
         ('samplesPerFFT', 'intSpin', {'value': 256, 'min': 1, 'max': 2048}),
         ('fftWindow', 'combo', {'values': ['dpss', 'hann', 'hamming', 'blackman', 'bartlett'], 'value': 'dpss'}),
@@ -128,6 +139,8 @@ class DirectFFTFilterCMSISNode(CtrlNode):
             s = self.stateGroup.state()
             fRange = [s['f lower'], s['f upper']]
             normalizingTime = [s['normStart'], s['normEnd']]
+            mvcPeriod = [s['mvcStart'], s['mvcEnd']]
+            mvcAlpha = s['mvcAlpha']
             samplesPerCycle = s['samplesPerCycle']
             samplesPerFFT = s['samplesPerFFT']
             fftWindow = (s['fftWindow'], s['fftWindowParam'])
@@ -135,14 +148,16 @@ class DirectFFTFilterCMSISNode(CtrlNode):
             fs = None
             clip = s['clipToZero']
             filteredData, SxxMeta = functions.directFFTFilterCMSIS(In, 
-                                                         fRange=fRange, 
-                                                         normalizingTime = normalizingTime, 
-                                                         samplesPerCycle = samplesPerCycle, 
-                                                         samplesPerFFT=samplesPerFFT, 
-                                                         fftWindow=fftWindow, 
-                                                         fftSize=fftSize, 
-                                                         fs=fs, 
-                                                         clip=clip)
+                                                            fRange=fRange, 
+                                                            normalizingTime = normalizingTime, 
+                                                            mvcPeriod = mvcPeriod,
+                                                            mvcAlpha = mvcAlpha,
+                                                            samplesPerCycle = samplesPerCycle, 
+                                                            samplesPerFFT=samplesPerFFT, 
+                                                            fftWindow=fftWindow, 
+                                                            fftSize=fftSize, 
+                                                            fs=fs, 
+                                                            clip=clip)
             return {'Out':filteredData, 'Sxx':SxxMeta}
 
 class MovingAvgConvFilterNode(CtrlNode):

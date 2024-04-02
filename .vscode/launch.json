@@ -39,7 +39,7 @@
             "request": "launch",
             "program": "cli_main.py",
             "args": [
-                " dataSamples/simTest1",
+                " dataSamples/V2test",
                 "-g=1",
                 "-s=12800",
                 "-a",
@@ -53,6 +53,15 @@
             "type": "python",
             "request": "launch",
             "program": "${file}",
+            "console": "integratedTerminal",
+            "justMyCode": true
+        },
+
+        {
+            "name": "Python: Test",
+            "type": "python",
+            "request": "launch",
+            "program": "cmsisdspTest.py",
             "console": "integratedTerminal",
             "justMyCode": true
         }

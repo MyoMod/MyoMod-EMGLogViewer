@@ -140,7 +140,20 @@ def hysteresis(data, upperThreshold, lowerThreshold):
                 d1[channel,i] = d1[channel,i - 1]
     return MetaArray(d1, info=data.infoCopy())
 
-def directFFTFilterCMSIS(data, fRange, normalizingTime, samplesPerCycle , samplesPerFFT, fftWindow, fftSize, fs = None, clip = True):
+def recalculateNormFFT(accu, accuLength, normTemp, reScale, mvcFFT = None ):
+    normTemp = accu / accuLength
+    #output = dsp.arm_f64_to_float(normTemp)
+    output = normTemp.astype(np.float32)
+    output = dsp.arm_clip_f32(output, 1e-15, 100000)
+    output = 1 / output
+
+    # When mvc is calculated, rescale the FFT
+    if reScale:
+        mvcResponse = np.mean(mvcFFT * output)
+        output = output / mvcResponse
+    return output
+
+def directFFTFilterCMSIS(data, fRange, normalizingTime, mvcPeriod, mvcAlpha, samplesPerCycle , samplesPerFFT, fftWindow, fftSize, fs = None, clip = True):
     if fs is None:
         try:
             tvals = data.xvals('Time')
@@ -164,12 +177,17 @@ def directFFTFilterCMSIS(data, fRange, normalizingTime, samplesPerCycle , sample
     directFFT = np.zeros((nChannels, data.shape[1] // samplesPerCycle))
     fft = np.zeros(fftSize, dtype=np.float32)
     subFft = np.zeros(subFftSize, dtype=np.float32)
+    tempFft = np.zeros(subFftSize, dtype=np.float32)
 
     # Normalisation data
     normAccumulator = np.zeros((nChannels, subFftSize), dtype=np.float64)
     normTemp = np.zeros(subFftSize, np.float64)
     normFft = np.ones((nChannels, subFftSize), np.float32)
     normAccLength = np.zeros(nChannels, dtype=np.uint32)
+
+    mvcFFT = np.ones((nChannels, subFftSize), np.float32)
+    mvcMax = np.zeros(nChannels, np.float32)
+    mvcMovAvgFFT = np.zeros((nChannels, subFftSize), np.float32)
 
     # Memories
     dataMemory = np.zeros((nChannels, fftSize), dtype=np.float32)
@@ -214,27 +232,43 @@ def directFFTFilterCMSIS(data, fRange, normalizingTime, samplesPerCycle , sample
 
             # Calculate avg FFT for inactivity
             t_now = data.xvals('Time')[i * samplesPerCycle]
+            t_next = t_now + samplesPerCycle / fs
             if normalizingTime[0] < t_now < normalizingTime[1]:
                 #normTemp = dsp.arm_float_to_f64(subFft)
                 normTemp = subFft.astype(np.float64)
                 normAccumulator[chn] = dsp.arm_add_f64(normTemp, normAccumulator[chn])
                 normAccLength[chn] += 1
 
-                normTemp = normAccumulator[chn] / normAccLength[chn]
-                #normFft[chn] = dsp.arm_f64_to_float(normTemp)
-                normFft[chn] = normTemp.astype(np.float32)
-                normFft[chn] = dsp.arm_clip_f32(normFft[chn], 1e-15, 100000)
-                normFft[chn] = 1 / normFft[chn]
+                normFft[chn] = recalculateNormFFT(normAccumulator[chn], normAccLength[chn], normTemp, t_now > mvcPeriod[1], mvcFFT[chn])
 
+            # Calculate mvcFFT for rescaling
+            if mvcPeriod[0] < t_now < mvcPeriod[1]:
+                if mvcMovAvgFFT[chn][0] == 0:
+                    mvcMovAvgFFT[chn] = subFft
+                # Update moving average (For loop in mcu code)
+                mvcMovAvgFFT[chn] = mvcMovAvgFFT[chn] * (1-mvcAlpha) + subFft * mvcAlpha
+
+                mvcSum = dsp.arm_dot_prod_f32(normFft[chn], mvcMovAvgFFT[chn])
+
+                if mvcSum > mvcMax[chn]:
+                    mvcMax[chn] = mvcSum
+                    mvcFFT[chn] = mvcMovAvgFFT[chn]
+
+                if t_next > mvcPeriod[1]:
+                    normFft[chn] = recalculateNormFFT(normAccumulator[chn], normAccLength[chn], normTemp, True, mvcFFT[chn])
 
             # Use inactivity FFT to filter the actual FFT and normalize it to 0 for inactivity
-            if t_now > normalizingTime[0]:
-                subFft = (subFft * normFft[chn]) - 1
+            if t_now > mvcPeriod[1]:
+                subFft = (subFft * normFft[chn])
+            else:
+                subFft = np.zeros(subFftSize, dtype=np.float32)
 
             Sxx[chn][:, i] = subFft
             directFFT[chn][i] = dsp.arm_mean_f32(subFft)
             if clip:
                 directFFT[chn][i] = max(0, directFFT[chn][i])
+
+            
             
     infoIn = data.infoCopy()
     t = np.linspace(data.xvals('Time')[0], data.xvals('Time')[-1], data.shape[1] // samplesPerCycle)
@@ -244,7 +278,7 @@ def directFFTFilterCMSIS(data, fRange, normalizingTime, samplesPerCycle , sample
 
     return MetaArray(directFFT, info=infoIn), SxxMeta
 
-def directFFTFilter(data, lowerFreqThreshold, upperFreqThreshold, fftsPerSecond, normPeriod, samplesPerFFT, fftWindow, fftSize, fs = None, clip = True):
+def directFFTFilter(data, lowerFreqThreshold, upperFreqThreshold, fftsPerSecond, normPeriod, mvcPeriod, mvcAlpha, samplesPerFFT, fftWindow, fftSize, fs = None, clip = True):
 
     if fs is None:
         try:
@@ -261,6 +295,7 @@ def directFFTFilter(data, lowerFreqThreshold, upperFreqThreshold, fftsPerSecond,
     SxxReturn = np.zeros((data.shape[0], 0, 0))
     fReturn = np.zeros((0))
     tReturn = np.zeros((0))
+    mvcFFT = np.zeros((data.shape[0], 0))
 
 
     # Apply FFT-Filter to each channel
@@ -278,10 +313,31 @@ def directFFTFilter(data, lowerFreqThreshold, upperFreqThreshold, fftsPerSecond,
         # Calculate avg FFT for inactivity
         t_avg = np.where((t > normPeriod[0]) & (t < normPeriod[1]))
         Sxx_avg = Sxx[:, t_avg][:,0,:]
-        inactivityFft = np.mean(Sxx_avg, axis=1, keepdims=True)
-        
-        # Use inactivity FFT to filter the actual FFT and normalize it to 0 for inactivity
-        spectrogrammDirectFtt= (Sxx / inactivityFft) - 1
+        normFft = np.mean(Sxx_avg, axis=1, keepdims=True)
+
+        # Calculate avg FFT for MVC
+        t_mvc = np.where((t > mvcPeriod[0]) & (t < mvcPeriod[1]))
+        Sxx_mvc = Sxx[:, t_mvc][:,0,:]
+
+        # Calculate moving average for normalization
+        alpha = mvcAlpha
+        b, a = [alpha], [1, -(1-alpha)]
+        z = signal.lfilter(b, a, Sxx_mvc)
+
+        mvcValues = np.mean(z, axis=0, keepdims=True)[0]
+        mvcMaxIndex = np.argmax(mvcValues)
+
+        if mvcFFT.shape[1] == 0:
+            mvcFFT = np.zeros((data.shape[0], len(f)))
+        mvcFFT[chn] = z[:, mvcMaxIndex]
+
+        # Get the normalization factor
+        normFft = 1 / normFft
+        normFactor = np.mean(mvcFFT[chn] * normFft)
+        normFft = normFft / normFactor
+
+        # Use inactivity FFT to filter the actual FFT
+        spectrogrammDirectFtt= Sxx * normFft
 
         if SxxReturn.shape[1] == 0:
             SxxReturn = np.zeros((data.shape[0], spectrogrammDirectFtt.shape[0], spectrogrammDirectFtt.shape[1]))
@@ -302,8 +358,9 @@ def directFFTFilter(data, lowerFreqThreshold, upperFreqThreshold, fftsPerSecond,
     if clip:
         directFFT = np.clip(directFFT, 0, None)
 
+    mvcFftMeta = MetaArray(mvcFFT, info=[infoIn[0], {'name': 'Time', 'values': fReturn}])
     SxxMeta = MetaArray(SxxReturn, info=[infoIn[0], {'name': 'Frequency', 'values': fReturn}, {'name': 'Time', 'values': tReturn}])
-    return MetaArray(directFFT, info=infoIn), SxxMeta
+    return MetaArray(directFFT, info=infoIn), SxxMeta, mvcFftMeta
 
 def statisticTracker(data, statistic, timeResolution, memoryLength, samplesPerCycle, startValue = None, fs = None):
     if fs is None:
