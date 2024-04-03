@@ -272,6 +272,7 @@ class EMG_FlowChart():
         library.addNodeType(EMG_Nodes.ChannelJoinNode, [('EMG_Filter',)])
         library.addNodeType(EMG_Nodes.minMaxScaleNode, [('EMG_Filter',)])
         library.addNodeType(SaveNode, [('Data',)])
+        library.addNodeType(TimeSliceNode, [('Data',)])
 
 
         self.fc.setLibrary(library)
@@ -607,6 +608,46 @@ class SaveNode(CtrlNode):
             np.savez(filename, In = In)
             return
         
+
+class TimeSliceNode(CtrlNode):
+    """Node that slices the data according to the region selected in the event plot"""
+    nodeName = 'TimeSlice'
+    
+    def __init__(self, name):
+        global emg_flowChart
+
+        self.emg_flowChart = emg_flowChart
+
+        ## Initialize node with only a single input terminal
+        CtrlNode.__init__(self, name, terminals=
+                        {
+                            'In': {'io':'in'},
+                            'Out': {'io':'out'}
+                        })
+
+        # config
+        self._allowRemove = True
+
+    def process(self, In, display=True):
+        """slice data"""
+
+        if In is not None:
+            #Get region
+            region = self.emg_flowChart.region.getRegion()
+
+            infoIn = In.infoCopy()
+
+            timeValues = In.xvals('Time')
+            minIndex = np.searchsorted(timeValues, region[0])
+            maxIndex = np.searchsorted(timeValues, region[1])
+            timeValues = timeValues[minIndex:maxIndex]
+
+            
+            infoIn[1]['values'] = timeValues
+
+            Out = MetaArray(In[:,minIndex:maxIndex], info=infoIn)
+            
+            return {'Out': Out}
 
 if __name__ == '__main__':
     app = pg.mkQApp("Flowchart Custom Node Example")
