@@ -5,6 +5,7 @@ We implement a couple of simple image processing nodes.
 """
 
 import numpy as np
+import os
 
 from PySide2 import QtCore, QtGui, QtWidgets
 import pyqtgraph as pg
@@ -46,11 +47,14 @@ class EMG_FlowChart():
         self.labelTimes = None
 
         self.timeRange = None
+        self.currentFile = None
 
         self.setupUi(win)
 
     def loadFromFile(self, filename):
+        self.currentFile = filename
         data = np.load(filename, allow_pickle=True)
+
         labelData = None
         labelTimes = None
 
@@ -267,6 +271,7 @@ class EMG_FlowChart():
         library.addNodeType(EMG_Nodes.MaxTrackerNode, [('EMG_Filter',)])
         library.addNodeType(EMG_Nodes.ChannelJoinNode, [('EMG_Filter',)])
         library.addNodeType(EMG_Nodes.minMaxScaleNode, [('EMG_Filter',)])
+        library.addNodeType(SaveNode, [('Data',)])
 
 
         self.fc.setLibrary(library)
@@ -573,6 +578,35 @@ class Spectrogram(CtrlNode):
             self.f = None
             self.t = None
 
+class SaveNode(CtrlNode):
+    """Node for saving data to file"""
+    nodeName = "Save"
+    
+    def __init__(self, name):
+        terminals = {
+            'In': {'io': 'in'},
+        }
+        CtrlNode.__init__(self, name, terminals=terminals)
+
+        global emg_flowChart
+
+        self.emg_flowChart = emg_flowChart
+    
+    def process(self, In, display=True):
+        """save data to file"""
+
+        if In is not None:
+            customName = self.name().split(".")[1]
+            inFilename = self.emg_flowChart.currentFile.split("/")[-1][:-4]
+            inPath = self.emg_flowChart.currentFile[:-len(inFilename)-4]
+            filename = inPath + inFilename + "/" + customName
+
+            # create directory if it does not exist
+            if not os.path.exists(inPath + inFilename):
+                os.makedirs(inPath + inFilename)
+            np.savez(filename, In = In)
+            return
+        
 
 if __name__ == '__main__':
     app = pg.mkQApp("Flowchart Custom Node Example")
