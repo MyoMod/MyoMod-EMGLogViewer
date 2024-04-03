@@ -17,6 +17,10 @@ from flowChart_analyzer import colorGenerator
 timeToKeep = 5
 updatesPerSecond = 10
 darkMode = False
+restTime = 5
+EngageTime = 10
+postRestTime = 5
+totalPrepTime = restTime + EngageTime + postRestTime
 
 class EventListener(threading.Thread):
     def __init__(self, startTime):
@@ -103,9 +107,66 @@ class CLI_Handler:
         self.tFirstMeasurement = None
         self.tLastMeasurement = None
 
+        self.latestSampleTime = 0
+        self.startSampleTime = 0
+        self.tStart = 0 # time when the first sample was received in seconds
+        self.isLearning = False
+        self.createLabelData()
+
+    def createLabelData(self):
+        # Labeltimes in the trapezoid format
+        labelData = []
+        labelData.append([(2,0), (4,1), (8,1), (10,0), (12,0), (14,-1), (18,-1), (20,0)])
+        labelData.append([(22,0), (24,1), (28,1), (30,0), (32,0), (34,-1), (38,-1), (40,0)])
+        labelData.append([(42,0), (44,1), (48,1), (50,0), (52,0), (54,-1), (58,-1), (60,0)])
+        labelData.append([(62,0), (64,1), (68,1), (70,0), (72,0), (74,-1), (78,-1), (80,0)])
+        labelData.append([(82,0), (84,1), (88,1), (90,0), (92,0), (94,-1), (98,-1), (100,0)])
+        labelData.append([(102,0), (104,1), (108,1), (110,0), (112,0), (114,-1), (118,-1), (120,0)])
+        self.nLabels = len(labelData)
+
+        dataPoints = 0
+        for data in labelData:
+            dataPoints += len(data)
+
+        labelTimes = np.zeros(dataPoints)
+        labelValues = np.zeros((len(labelData), dataPoints))
+
+        for i, data in enumerate(labelData):
+            for j, (time, value) in enumerate(data):
+                labelTimes[i*len(data) + j] = time
+                labelValues[i, i*len(data) + j] = value
+        labelTimes += totalPrepTime
+        self.dataHandler.addData(labelTimes, labelValues, "labelData")
+
+    def startLearning(self):
+        self.isLearning = True
+        self.startSampleTime = self.latestSampleTime
+
+    def startNormal(self):
+        self.isLearning = False
+        self.startSampleTime = self.latestSampleTime
+
+    def stop(self):
+        from PySide2 import QtWidgets  # Should work with PyQt5 / PySide2 / PySide6 as well
+        import pyqtgraph as pg  
+        from pyqtgraph.Qt import QtCore, QtWidgets
+
+        currentDir = os.getcwd()
+        emgTimes, emgValues = self.dataHandler.getDataInRange(self.startSampleTime, self.latestSampleTime, "raw")
+        labelTimes, labelValues = self.dataHandler.getDataInRange(self.startSampleTime, self.latestSampleTime, "labelData")
+
+        # Get filename from text input
+        filename = self.nameInput.text()
+        filename = os.path.join(currentDir, filename)
+
+
+        np.savez(filename, emgTimes = emgTimes, emgValues = emgValues, labelTimes = labelTimes, labelValues = labelValues)
+
     def addData(self, times, values):
         if self.initDone:
             self.dataHandler.addData(times, values)
+
+            self.latestSampleTime = times[-1]
 
             if self.tFirstMeasurement is None:
                 self.tFirstMeasurement = time.time()
@@ -171,7 +232,20 @@ class CLI_Handler:
     def updateUi(self):
         self.run()
 
+        # Display user commands
+        tNow = self.latestSampleTime - self.startSampleTime
+        if self.startSampleTime > 0:
+            if tNow < restTime:
+                self.userCommandLabel.setText("Rest")
+            elif tNow < (restTime + EngageTime):
+                self.userCommandLabel.setText("Engage all muscles")
+            elif tNow < (totalPrepTime):
+                self.userCommandLabel.setText("Rest")
+            else:
+                self.userCommandLabel.setText("Start")
+
         rawTimes, rawValues = self.dataHandler.getData(timeToKeep, "raw")
+
 
         if rawTimes is None:
             return []
@@ -185,12 +259,35 @@ class CLI_Handler:
         if self.eventListener.terminated:
             self.w.close()
 
+        
+        if self.isLearning:
+            startTime = tNow - 15/2
+            endTime = startTime + 15
+            labelTimes, labelValues = self.dataHandler.getDataInRange(startTime, endTime, "labelData")
+
+            if labelTimes is not None and np.shape(labelTimes)[0] != 0:
+
+                #prepend the first value to the labelValues
+                labelTimes = np.insert(labelTimes, 0, startTime)
+                labelValues = np.insert(labelValues, 0, labelValues[:,0], axis=1)
+
+                # append the last value to the labelValues
+                labelTimes = np.append(labelTimes, endTime)
+                labelValues = np.append(labelValues, labelValues[:,-1,None], axis=1)
+
+                labelTimes = labelTimes - tNow 
+
+                if labelTimes is not None:
+                    for i, plotItem in enumerate(self.outputPlotItems):
+                        if i < len(labelValues):
+                            plotItem.setData(labelTimes, labelValues[i])
+
         t2End = perf_counter()
         
         self.avgT[1] = self.avgT[1] * 0.8 + (t2End - t2Start) * 0.2
-        self.t1Label.setText("T1: {}".format(self.avgT[0]))
-        self.t2Label.setText("T2: {}".format(self.avgT[1]))
-        self.fpsLabel.setText("FPS: {}".format(self.fps))
+        self.t1Label.setText("T1: {:.2f} ms".format(self.avgT[0]*1000))
+        self.t2Label.setText("T2: {:.2f} ms".format(self.avgT[1]*1000))
+        self.fpsLabel.setText("FPS: {:.2f}".format(self.fps))
 
     def setupUI(self):
         from PySide2 import QtWidgets  # Should work with PyQt5 / PySide2 / PySide6 as well
@@ -212,30 +309,76 @@ class CLI_Handler:
         self.plots = [pg.PlotWidget() for i in range(6)]
         self.plotItems = [plot.plot([0]) for plot in self.plots]
 
+        self.outputPlots = [pg.PlotWidget() for i in range(self.nLabels)]
+        self.outputPlotItems = [plot.plot([0]) for plot in self.outputPlots]
+
         ## Create a grid layout to manage the widgets size and position
         self.layout = QtWidgets.QVBoxLayout()
         self.w.setLayout(self.layout)
 
         # Add labels
-        self.labelLayout = QtWidgets.QHBoxLayout()
-        self.layout.addLayout(self.labelLayout)
+        self.headerLayout = QtWidgets.QHBoxLayout()
+        self.layout.addLayout(self.headerLayout)
         self.t1Label = QtWidgets.QLabel("T1: ")
         self.t2Label = QtWidgets.QLabel("T2: ")
         self.fpsLabel = QtWidgets.QLabel("FPS: ")
-        self.labelLayout.addWidget(self.t1Label)
-        self.labelLayout.addWidget(self.t2Label)
-        self.labelLayout.addWidget(self.fpsLabel)
+        self.headerLayout.addWidget(self.t1Label)
+        self.headerLayout.addWidget(self.t2Label)
+        self.headerLayout.addWidget(self.fpsLabel)
         self.lastDuration = 0.0
         self.lastUpdate = perf_counter()
         self.avgFps = 0.0
         self.avgT = [0.0, 0.0]
 
+        # Add text input for name
+        self.nameInput = QtWidgets.QLineEdit()
+        self.nameInput.setText(self.filename)
+        self.layout.addWidget(self.nameInput)
 
-        ## Add widgets to the layout in their proper positions
+        # Add Buttons
+        self.startRawButton = QtWidgets.QPushButton("Start")
+        self.startRawButton.clicked.connect(lambda: self.startNormal())
+        self.startLearningButton = QtWidgets.QPushButton("Start Learning")
+        self.startLearningButton.clicked.connect(lambda: self.startLearning())
+        self.stopButton = QtWidgets.QPushButton("Stop")
+        self.stopButton.clicked.connect(lambda: self.stop())
+
+        self.headerLayout.addWidget(self.startRawButton)
+        self.headerLayout.addWidget(self.startLearningButton)
+        self.headerLayout.addWidget(self.stopButton)
+
+        # Add a label for commands to the user
+        self.userCommandLabel = QtWidgets.QLabel()
+        self.userCommandLabel.setStyleSheet("font-size: 30pt")
+        self.userCommandLabel.setAlignment(QtCore.Qt.AlignCenter)
+        self.layout.addWidget(self.userCommandLabel)
+
+        # Add a two-column layout for the plots
+        self.hLayout = QtWidgets.QHBoxLayout()
+        self.layout.addLayout(self.hLayout)
+
+        self.leftLayout = QtWidgets.QVBoxLayout()
+        self.rightLayout = QtWidgets.QVBoxLayout()
+        self.hLayout.addLayout(self.leftLayout)
+        self.hLayout.addLayout(self.rightLayout)
+
+        ## Add realdata plots to the left layout 
         for i, plot in enumerate(self.plots):
-            self.layout.addWidget(plot)
+            self.leftLayout.addWidget(plot)
             plot.getPlotItem().listDataItems()[0].setPen(pg.mkPen(colorGenerator(i, darkMode), width=1))
             plot.getPlotItem().getAxis('left').setLabel(units='V')
+
+        ## Fill the right layout with widgets for learning/state
+
+        for i, plot in enumerate(self.outputPlots):
+            self.rightLayout.addWidget(plot)
+            plot.getPlotItem().listDataItems()[0].setPen(pg.mkPen(colorGenerator(0, darkMode), width=2))
+            plot.setYRange(-1.1, 1.1)
+            plot.setXRange(-5, 5)
+
+            # Add a red line at 0
+            plot.addItem(pg.InfiniteLine(pos=0, angle=90, pen=pg.mkPen('r', width=2)))
+            
         ## Display the widget as a new window
         self.w.show()
 

@@ -8,6 +8,8 @@ class DataHandler:
         self.processedValues = np.empty([6,0], dtype=np.float32)
         self.eventTimes = np.array([], dtype=np.float32)
         self.eventValues = np.array([], dtype=np.float32)
+        self.labelTimes = np.array([], dtype=np.float32)
+        self.labelValues = np.array([], dtype=np.float32)
 
     def addData(self, times, values, type = "raw"):
         if type == "raw":
@@ -18,6 +20,9 @@ class DataHandler:
         elif type == "event":
             self.eventTimes = np.append(self.eventTimes, times)
             self.eventValues = np.append(self.eventValues, values)
+        elif type == "labelData":
+            self.labelTimes = np.append(self.labelTimes, times)
+            self.labelValues = values
 
     def getNumSamples(self, type = "raw"):
         times, values = self._getDataPair(type)
@@ -61,7 +66,7 @@ class DataHandler:
 
         # get new samples
         times = times[startIndex:endIndex]
-        values = values[startIndex:endIndex]
+        values = values[:,startIndex:endIndex]
 
         return times, values
     
@@ -69,7 +74,8 @@ class DataHandler:
         case = {
             "raw": (self.emgTimes, self.emgValues),
             "processed": (self.emgTimes, self.processedValues),
-            "event": (self.eventTimes, self.eventValues)
+            "event": (self.eventTimes, self.eventValues),
+            "labelData": (self.labelTimes, self.labelValues),
         }
         return case.get(type, (None, None))
 
