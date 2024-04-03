@@ -8,6 +8,13 @@ terminals:
         renamable: False
         removable: False
         multiable: False
+    labelIn:
+        io: 'in'
+        multi: False
+        optional: False
+        renamable: False
+        removable: False
+        multiable: False
     dataOut:
         io: 'out'
         multi: False
@@ -23,6 +30,13 @@ inputNode:
     terminals:
         dataIn:
             io: 'out'
+            multi: False
+            optional: False
+            renamable: False
+            removable: False
+            multiable: False
+        labelIn:
+            io: 'in'
             multi: False
             optional: False
             renamable: False

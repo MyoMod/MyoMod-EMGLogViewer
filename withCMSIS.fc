@@ -1,0 +1,55 @@
+pos: (0.0, 0.0)
+bypass: False
+terminals:
+    dataIn:
+        io: 'in'
+        multi: False
+        optional: False
+        renamable: False
+        removable: False
+        multiable: False
+    labelIn:
+        io: 'in'
+        multi: False
+        optional: False
+        renamable: False
+        removable: False
+        multiable: False
+    dataOut:
+        io: 'out'
+        multi: False
+        optional: False
+        renamable: False
+        removable: False
+        multiable: False
+nodes: [{'class': 'DirectFFTFilter', 'name': 'DirectFFTFilter.0', 'pos': (-18.573376272047454, 43.06880379117587), 'state': {'pos': (-18.573376272047454, 43.06880379117587), 'bypass': False, 'ctrl': {'f lower': 60.0, 'f upper': 300.0, 'normStart': 1.0, 'normEnd': 5.0, 'mvcStart': 2.0, 'mvcEnd': 12.5, 'mvcAlpha': 0.01, 'fftWindow': 'hann', 'fftWindowParam': 1.8, 'fftSize': 512, 'samplesPerFFT': 512, 'fftsPerSecond': 133, 'clipToZero': True}}}, {'class': 'MultiLineView', 'name': 'Raw Data', 'pos': (-8.124234520096593, -188.2999627375982), 'state': {'pos': (-8.124234520096593, -188.2999627375982), 'bypass': False, 'ctrl': {'percentile': 99.0, 'scaleToVisible': True}}}, {'class': 'Spectrogram', 'name': 'Spectrogram.0', 'pos': (7.782112350702789, -128.50737732782795), 'state': {'pos': (7.782112350702789, -128.50737732782795), 'bypass': False, 'ctrl': {'channel': 'Channel 2'}}}, {'class': 'DirectFFTFilterCMSIS', 'name': 'DirectFFTFilterCMSIS.0', 'pos': (14.676193320246313, 218.1375241976486), 'state': {'pos': (14.676193320246313, 218.1375241976486), 'bypass': False, 'ctrl': {'f lower': 60.0, 'f upper': 299.5, 'normStart': 1.0, 'normEnd': 5.0, 'mvcStart': 6.0, 'mvcEnd': 10.0, 'mvcAlpha': 0.1, 'samplesPerCycle': 15, 'samplesPerFFT': 512, 'fftWindow': 'hann', 'fftWindowParam': 1.9, 'fftSize': 512, 'clipToZero': True}}}, {'class': 'ButterBandpassFilter', 'name': 'ButterBandpassFilter.0', 'pos': (29.70459715271295, -54.8879935875363), 'state': {'pos': (29.70459715271295, -54.8879935875363), 'bypass': False, 'ctrl': {'lowcut': 50.0, 'highcut': 300.0, 'bidir': False, 'order': 4}}}, {'class': 'Save', 'name': 'Save.data', 'pos': (132.16229915444723, 129.29832041882014), 'state': {'pos': (132.16229915444723, 129.29832041882014), 'bypass': False, 'ctrl': {}}}, {'class': 'Save', 'name': 'Save.mvc', 'pos': (134.17311005982208, 80.2104990106117), 'state': {'pos': (134.17311005982208, 80.2104990106117), 'bypass': False, 'ctrl': {}}}, {'class': 'NotchFilter', 'name': 'NotchFilter.0', 'pos': (166.6996910570449, -53.535278348417535), 'state': {'pos': (166.6996910570449, -53.535278348417535), 'bypass': False, 'ctrl': {'cutoff': 50.0, 'bidir': False, 'quality': 30.0}}}, {'class': 'MultiLineView', 'name': 'Classic Filter', 'pos': (184.84231460915407, -139.60676901822825), 'state': {'pos': (184.84231460915407, -139.60676901822825), 'bypass': False, 'ctrl': {'percentile': 99.0, 'scaleToVisible': True}}}, {'class': 'MinTracker', 'name': 'MinTracker.0', 'pos': (214.4089116712206, 430.6730538865396), 'state': {'pos': (214.4089116712206, 430.6730538865396), 'bypass': False, 'ctrl': {'memoryLength': 4.0, 'timeResolution': 0.5, 'samplesPerCycle': 1, 'useStartValue': True, 'startValue': 0.0}}}, {'class': 'MaxTracker', 'name': 'MaxTracker.0', 'pos': (214.7000056810719, 349.86374750197564), 'state': {'pos': (214.7000056810719, 349.86374750197564), 'bypass': False, 'ctrl': {'memoryLength': 15.0, 'timeResolution': 0.2, 'samplesPerCycle': 1, 'useStartValue': True, 'startValue': 2.0}}}, {'class': 'MultiLineView', 'name': 'Disp FFT SciPy', 'pos': (245.22166803503922, 179.2657202724567), 'state': {'pos': (245.22166803503922, 179.2657202724567), 'bypass': False, 'ctrl': {'percentile': 99.0, 'scaleToVisible': True}}}, {'class': 'RootMeanSquare', 'name': 'RootMeanSquare.0', 'pos': (293.8704788391667, -54.01036607362778), 'state': {'pos': (293.8704788391667, -54.01036607362778), 'bypass': False, 'ctrl': {'time': 0.2}}}, {'class': 'Spectrogram', 'name': 'Spec FFT SciPy', 'pos': (343.9586069380515, 53.3505137540555), 'state': {'pos': (343.9586069380515, 53.3505137540555), 'bypass': False, 'ctrl': {'channel': 'Channel 2'}}}, {'class': 'MinMaxScale', 'name': 'MinMaxScale.0', 'pos': (404.0564156642674, 394.5170343002121), 'state': {'pos': (404.0564156642674, 394.5170343002121), 'bypass': False, 'ctrl': {'outMin': 0.0, 'outMax': 1.0}}}, {'class': 'ChannelJoin', 'name': 'ChannelJoin.0', 'pos': (423.55890797920426, 314.70411535232694), 'state': {'pos': (423.55890797920426, 314.70411535232694), 'bypass': False, 'terminals': OrderedDict([('output', {'io': 'out', 'multi': False, 'optional': False, 'renamable': False, 'removable': False, 'multiable': False}), ('input', {'io': 'in', 'multi': False, 'optional': False, 'renamable': True, 'removable': True, 'multiable': True}), ('min', {'io': 'in', 'multi': False, 'optional': False, 'renamable': True, 'removable': True, 'multiable': True}), ('max', {'io': 'in', 'multi': False, 'optional': False, 'renamable': True, 'removable': True, 'multiable': True})]), 'order': ['input', 'max', 'min']}}, {'class': 'MultiLineView', 'name': 'Disp FFT CMSIS', 'pos': (433.3230642635907, 261.0273465694163), 'state': {'pos': (433.3230642635907, 261.0273465694163), 'bypass': False, 'ctrl': {'percentile': 99.0, 'scaleToVisible': True}}}, {'class': 'Spectrogram', 'name': 'Spec FFT CMSIS', 'pos': (536.5562847157004, 205.7009857223954), 'state': {'pos': (536.5562847157004, 205.7009857223954), 'bypass': False, 'ctrl': {'channel': 'Channel 2'}}}]
+connects: [('Input', 'dataIn', 'Output', 'dataOut'), ('DirectFFTFilterCMSIS.0', 'Sxx', 'Spec FFT CMSIS', 'Sxx'), ('Input', 'dataIn', 'Raw Data', 'data'), ('DirectFFTFilter.0', 'mvcFFT', 'Save.mvc', 'In'), ('DirectFFTFilterCMSIS.0', 'Out', 'MaxTracker.0', 'In'), ('Input', 'dataIn', 'ButterBandpassFilter.0', 'In'), ('DirectFFTFilter.0', 'Sxx', 'Spec FFT SciPy', 'Sxx'), ('DirectFFTFilterCMSIS.0', 'Out', 'MinMaxScale.0', 'input'), ('NotchFilter.0', 'Out', 'RootMeanSquare.0', 'In'), ('DirectFFTFilterCMSIS.0', 'Out', 'ChannelJoin.0', 'input'), ('DirectFFTFilterCMSIS.0', 'Out', 'Disp FFT CMSIS', 'data'), ('MaxTracker.0', 'Out', 'MinMaxScale.0', 'max'), ('Input', 'dataIn', 'DirectFFTFilter.0', 'In'), ('MinTracker.0', 'Out', 'ChannelJoin.0', 'min'), ('RootMeanSquare.0', 'Out', 'Classic Filter', 'data'), ('MinTracker.0', 'Out', 'MinMaxScale.0', 'min'), ('Input', 'dataIn', 'Spectrogram.0', 'timeSeries'), ('DirectFFTFilterCMSIS.0', 'Out', 'MinTracker.0', 'In'), ('DirectFFTFilter.0', 'Out', 'Save.data', 'In'), ('MaxTracker.0', 'Out', 'ChannelJoin.0', 'max'), ('DirectFFTFilter.0', 'Out', 'Disp FFT SciPy', 'data'), ('Input', 'dataIn', 'DirectFFTFilterCMSIS.0', 'In'), ('ButterBandpassFilter.0', 'Out', 'NotchFilter.0', 'In')]
+inputNode:
+    pos: (-150.0, 0.0)
+    bypass: False
+    terminals:
+        dataIn:
+            io: 'out'
+            multi: False
+            optional: False
+            renamable: False
+            removable: False
+            multiable: False
+        labelIn:
+            io: 'in'
+            multi: False
+            optional: False
+            renamable: False
+            removable: False
+            multiable: False
+outputNode:
+    pos: (300.0, 0.0)
+    bypass: False
+    terminals:
+        dataOut:
+            io: 'in'
+            multi: False
+            optional: False
+            renamable: False
+            removable: False
+            multiable: False
