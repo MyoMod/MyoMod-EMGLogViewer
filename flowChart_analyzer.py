@@ -42,6 +42,8 @@ class EMG_FlowChart():
         self.cmpltTimes = None
         self.cmpltValues = None
         self.eventData = None
+        self.labelData = None
+        self.labelTimes = None
 
         self.timeRange = None
 
@@ -49,6 +51,8 @@ class EMG_FlowChart():
 
     def loadFromFile(self, filename):
         data = np.load(filename, allow_pickle=True)
+        labelData = None
+        labelTimes = None
 
         if "timeArray" in data:
             emgTimes = data["timeArray"]
@@ -67,7 +71,14 @@ class EMG_FlowChart():
             emgTimes = data["emgTimes"]
             emgValues = data["emgValues"]
 
+            if "labelValues" in data:
+                labelData = data["labelValues"]
+                labelTimes = data["labelTimes"]
+
             eventData = dict( data)
+            if "labelValues" in eventData:
+                del eventData["labelTimes"]
+                del eventData["labelValues"]
             del eventData["emgTimes"]
             del eventData["emgValues"]
 
@@ -80,6 +91,8 @@ class EMG_FlowChart():
         self.cmpltTimes = emgTimes
         self.cmpltValues = emgValues
         self.eventData = eventData
+        self.labelData = labelData
+        self.labelTimes = labelTimes
 
         # Add events on the up-most row
         # add events
@@ -91,6 +104,18 @@ class EMG_FlowChart():
             eventValues = eventData[:,1]
 
             self.eventPlot.plot(eventTimes, eventValues, stepMode='right', name=eventName, pen=pg.mkPen(i, width=2))
+
+        if self.labelData is not None:
+            for i in range(self.labelData.shape[0]):
+                labelName = "Label Channel {}".format(i+1)
+                labelValues = labelData[i,:]
+
+                self.eventPlot.plot(self.labelTimes, labelValues, name=labelName, pen=pg.mkPen(i, width=2))
+            
+            #display range -1 to 1
+            self.eventPlot.setYRange(-1, 1)
+        else:
+            self.eventPlot.setYRange(0, 1)
         
         self.eventPlot.addItem(self.region, ignoreBounds=True)
         self.eventPlot.addItem(self.eventVLine, ignoreBounds=True)
@@ -131,8 +156,15 @@ class EMG_FlowChart():
                 {"name": "Time", "units": "sec", "values":time }]
         multiChannelData = MetaArray(values, info=info)
 
+        if self.labelData is not None:
+            labelData = MetaArray(self.labelData, info=[{"name": "Label", "cols": [{"name": "Label Channel {}".format(i+1), "units": "V"} for i in range(self.labelData.shape[0])]},
+                                                    {"name": "Time", "units": "sec", "values": self.labelTimes}])
+        else:
+            labelData = MetaArray(np.zeros((1,1)), info=[{"name": "Label", "cols": [{"name": "Label Channel 1", "units": "V"}]},
+                                                    {"name": "Time", "units": "sec", "values": [0]}])
+
         ## Set the raw data as the input value to the flowchart
-        self.fc.setInput(dataIn=multiChannelData)
+        self.fc.setInput(dataIn=multiChannelData,labelIn=labelData)
 
     def updateChannels(self):
         self.updateInput()
@@ -161,6 +193,7 @@ class EMG_FlowChart():
         ## Create an empty flowchart with a single input and output
         self.fc = Flowchart(terminals={
             'dataIn': {'io': 'in'},
+            'labelIn': {'io': 'in'},
             'dataOut': {'io': 'out'}    
         })
         self.layout.addWidget(self.fc.widget(), 1, 0, -1, 1)
