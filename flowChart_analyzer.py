@@ -7,7 +7,7 @@ We implement a couple of simple image processing nodes.
 import numpy as np
 import os
 
-from PySide2 import QtCore, QtGui, QtWidgets
+from PySide6 import QtCore, QtGui, QtWidgets
 import pyqtgraph as pg
 import pyqtgraph.flowchart.library as fclib
 from pyqtgraph.flowchart import Flowchart, Node

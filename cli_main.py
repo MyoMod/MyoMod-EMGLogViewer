@@ -147,20 +147,22 @@ class CLI_Handler:
         self.startSampleTime = self.latestSampleTime
 
     def stop(self):
-        from PySide2 import QtWidgets  # Should work with PyQt5 / PySide2 / PySide6 as well
+        from PySide6 import QtWidgets  # Should work with PyQt5 / PySide2 / PySide6 as well
         import pyqtgraph as pg  
         from pyqtgraph.Qt import QtCore, QtWidgets
 
         currentDir = os.getcwd()
         emgTimes, emgValues = self.dataHandler.getDataInRange(self.startSampleTime, self.latestSampleTime, "raw")
-        labelTimes, labelValues = self.dataHandler.getDataInRange(self.startSampleTime, self.latestSampleTime, "labelData")
+        labelTimes, labelValues = self.dataHandler.getDataInRange(0, self.latestSampleTime - self.startSampleTime, "labelData")
+
+        emgTimesCorrected = np.copy(emgTimes) - self.startSampleTime
 
         # Get filename from text input
         filename = self.nameInput.text()
         filename = os.path.join(currentDir, filename)
 
 
-        np.savez(filename, emgTimes = emgTimes, emgValues = emgValues, labelTimes = labelTimes, labelValues = labelValues)
+        np.savez(filename, emgTimes = emgTimesCorrected, emgValues = emgValues, labelTimes = labelTimes, labelValues = labelValues)
 
     def addData(self, times, values):
         if self.initDone:
@@ -290,7 +292,7 @@ class CLI_Handler:
         self.fpsLabel.setText("FPS: {:.2f}".format(self.fps))
 
     def setupUI(self):
-        from PySide2 import QtWidgets  # Should work with PyQt5 / PySide2 / PySide6 as well
+        from PySide6 import QtWidgets  # Should work with PyQt5 / PySide2 / PySide6 as well
         import pyqtgraph as pg  
         from pyqtgraph.Qt import QtCore, QtWidgets
 
